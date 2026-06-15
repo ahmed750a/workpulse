@@ -1,5 +1,4 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-
 import '../../../../../core/services/work_timer_service.dart';
 import '../models/attendance_record_model.dart';
 import 'work_schedule_repository.dart';
@@ -20,7 +19,6 @@ class AttendanceRepository {
   DateTime _scheduleTimeToToday(String time) {
     final now = DateTime.now();
     final parts = time.split(':');
-
     return DateTime(
       now.year,
       now.month,
@@ -44,7 +42,8 @@ class AttendanceRepository {
   }
 
   Future<AttendanceRecordModel> checkIn(String employeeId) async {
-    final schedule = await _scheduleRepository.getScheduleForEmployee(employeeId);
+    final schedule =
+    await _scheduleRepository.getScheduleForEmployee(employeeId);
     final now = DateTime.now();
 
     if (!schedule.workDays.contains(now.weekday)) {
@@ -86,51 +85,62 @@ class AttendanceRepository {
         .single();
 
     await WorkTimerService.instance.start(checkInTime: now);
-
     return AttendanceRecordModel.fromJson(data);
   }
 
   Future<AttendanceRecordModel> checkOut(String employeeId) async {
+    // ✅ نستخدم DateTime.now() للانصراف العادي
+    return _performCheckOut(employeeId, DateTime.now());
+  }
+
+  // ✅ دالة جديدة للانصراف المعلق بوقت محدد
+  Future<AttendanceRecordModel> checkOutWithTime(
+      String employeeId,
+      DateTime checkOutTime,
+      ) async {
+    return _performCheckOut(employeeId, checkOutTime);
+  }
+
+  // ✅ المنطق الموحد للانصراف
+  Future<AttendanceRecordModel> _performCheckOut(
+      String employeeId,
+      DateTime checkOutTime,
+      ) async {
     final existing = await getTodayRecord(employeeId);
 
     if (existing == null) {
       throw Exception('لا يوجد تسجيل حضور لهذا اليوم');
     }
-
     if (existing.checkInAt == null) {
       throw Exception('سجل الحضور غير مكتمل');
     }
-
     if (existing.checkOutAt != null) {
       throw Exception('تم تسجيل الانصراف مسبقاً لهذا اليوم');
     }
 
-    final schedule = await _scheduleRepository.getScheduleForEmployee(employeeId);
+    final schedule =
+    await _scheduleRepository.getScheduleForEmployee(employeeId);
 
-    final now = DateTime.now();
     final checkInAt = DateTime.parse(existing.checkInAt!).toLocal();
-
-    int workedMinutes = now.difference(checkInAt).inMinutes;
+    int workedMinutes = checkOutTime.difference(checkInAt).inMinutes;
     if (workedMinutes < 0) workedMinutes = 0;
 
     int earlyLeaveMinutes = 0;
     String status = 'checked_out';
-    if (schedule.scheduleType == 'fixed' &&
-        schedule.allowCheckInAfterEndTime == false) {
 
-      final officialEnd = _scheduleTimeToToday(schedule.endTime);
-
-      if (now.isAfter(officialEnd)) {
-        throw Exception(
-          'انتهى وقت الدوام الرسمي ولا يمكن تسجيل الحضور',
-        );
-      }
-    }
     if (schedule.scheduleType == 'fixed') {
-      final officialEnd = _scheduleTimeToToday(schedule.endTime);
+      // ✅ نحسب وقت نهاية الدوام بناءً على يوم الانصراف الفعلي
+      final checkOutDate = checkOutTime.toLocal();
+      final officialEnd = DateTime(
+        checkOutDate.year,
+        checkOutDate.month,
+        checkOutDate.day,
+        int.parse(schedule.endTime.split(':')[0]),
+        int.parse(schedule.endTime.split(':')[1]),
+      );
 
-      if (now.isBefore(officialEnd)) {
-        earlyLeaveMinutes = officialEnd.difference(now).inMinutes;
+      if (checkOutTime.isBefore(officialEnd)) {
+        earlyLeaveMinutes = officialEnd.difference(checkOutTime).inMinutes;
       }
 
       if (existing.lateMinutes > 0 && earlyLeaveMinutes > 0) {
@@ -142,7 +152,6 @@ class AttendanceRepository {
       }
     } else {
       final remaining = schedule.requiredMinutes - workedMinutes;
-
       if (remaining > 0) {
         status = 'hours_incomplete';
       } else if (workedMinutes > schedule.requiredMinutes) {
@@ -155,18 +164,17 @@ class AttendanceRepository {
     final data = await _client
         .from('attendance_records')
         .update({
-      'check_out_at': now.toUtc().toIso8601String(),
+      'check_out_at': checkOutTime.toUtc().toIso8601String(),
       'worked_minutes': workedMinutes,
       'early_leave_minutes': earlyLeaveMinutes,
       'status': status,
-      'updated_at': now.toUtc().toIso8601String(),
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
     })
         .eq('id', existing.id)
         .select()
         .single();
 
     await WorkTimerService.instance.stop();
-
     return AttendanceRecordModel.fromJson(data);
   }
 

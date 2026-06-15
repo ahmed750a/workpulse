@@ -27,13 +27,15 @@ class ActivationCodesState {
     List<ActivationCodeModel>? codes,
     bool? isLoading,
     String? error,
+    bool clearError = false,           // ✅
     String? generatedCode,
+    bool clearGeneratedCode = false,
   }) {
     return ActivationCodesState(
       codes: codes ?? this.codes,
       isLoading: isLoading ?? this.isLoading,
-      error: error,
-      generatedCode: generatedCode ?? this.generatedCode,
+      error: clearError ? null : error ?? this.error,  // ✅
+      generatedCode: clearGeneratedCode ? null : generatedCode ?? this.generatedCode,
     );
   }
 }

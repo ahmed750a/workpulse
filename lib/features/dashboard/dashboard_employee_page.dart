@@ -243,7 +243,7 @@ class _DashboardEmployeePageState extends ConsumerState<DashboardEmployeePage> {
               title: 'سجل الحضور الشهري',
               subtitle: 'عرض الحضور والانصراف لهذا الشهر',
               icon: Icons.calendar_month_rounded,
-              onTap: () {},
+              onTap: () => context.push('/attendance/monthly'), // ✅
             ),
             _ServiceTile(
               title: 'طلب إجازة',
@@ -255,7 +255,7 @@ class _DashboardEmployeePageState extends ConsumerState<DashboardEmployeePage> {
               title: 'طلب إذن',
               subtitle: 'طلب تأخير أو خروج مبكر',
               icon: Icons.schedule_send_rounded,
-              onTap: () {},
+              onTap: () => context.push('/permissions'), // ✅
             ),
             _ServiceTile(
               title: 'طلب تعديل بصمة',

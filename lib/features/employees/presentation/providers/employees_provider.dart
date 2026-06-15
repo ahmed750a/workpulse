@@ -23,11 +23,12 @@ class EmployeesState {
     List<EmployeeModel>? employees,
     bool? isLoading,
     String? error,
+    bool clearError = false,           // ✅
   }) {
     return EmployeesState(
       employees: employees ?? this.employees,
       isLoading: isLoading ?? this.isLoading,
-      error: error,
+      error: clearError ? null : error ?? this.error,  // ✅
     );
   }
 }
