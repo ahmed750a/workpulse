@@ -34,13 +34,13 @@ class EmployeesState {
 }
 
 class EmployeesNotifier extends Notifier<EmployeesState> {
-  late final EmployeeRepository repository;
+  late EmployeeRepository repository;
 
   @override
   EmployeesState build() {
     repository = ref.read(employeeRepositoryProvider);
-    ref.watch(sessionVersionProvider); // يربط الـ state بعمر الجلسة
-    return const EmployeesState();     // بدون أي طلب شبكة هنا
+    ref.watch(sessionVersionProvider);
+    return const EmployeesState();
   }
   Future<void> updateEmployeeWorkSchedule({
     required String employeeId,

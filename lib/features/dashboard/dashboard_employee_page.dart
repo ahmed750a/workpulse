@@ -271,7 +271,7 @@ class _DashboardEmployeePageState extends ConsumerState<DashboardEmployeePage> {
               title: 'طلب إجازة',
               subtitle: 'إرسال طلب إجازة للإدارة',
               icon: Icons.beach_access_rounded,
-              onTap: () {},
+              onTap: () => context.push('/leaves'),
             ),
             _ServiceTile(
               title: 'طلب إذن',

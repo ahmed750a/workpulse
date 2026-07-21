@@ -47,7 +47,7 @@ class PermissionsState {
 }
 
 class PermissionsNotifier extends Notifier<PermissionsState> {
-  late final PermissionRepository _repository;
+  late PermissionRepository _repository;
 
   @override
   PermissionsState build() {

@@ -138,13 +138,8 @@ class _DashboardAdminPageState extends ConsumerState<DashboardAdminPage> {
                     color: const Color(0xFF0F766E),
                   ),
                 ),
-                ElevatedButton(
-                  onPressed: () {
-                    FirebaseCrashlytics.instance.crash();
-                  },
-                  child: const Text("Test Crash"),
-                )
-                ,const SizedBox(width: 14),
+
+                const SizedBox(width: 14),
                 Expanded(
                   child: _AdminStatCard(
                     title: 'بانتظار التفعيل',
@@ -226,7 +221,23 @@ class _DashboardAdminPageState extends ConsumerState<DashboardAdminPage> {
               onTap: () {},
             ),
             _AdminActionTile(
-              title: 'الطلبات المعلقة',
+              title: 'طلبات الإجازات',
+              subtitle: 'مراجعة واعتماد أو رفض طلبات الإجازة',
+              icon: Icons.beach_access_rounded,
+              onTap: () {
+                context.push('/admin/leaves');
+              },
+            ),
+            _AdminActionTile(
+              title: 'أرصدة الإجازات',
+              subtitle: 'ضبط رصيد الإجازات للموظفين',
+              icon: Icons.account_balance_wallet_rounded,
+              onTap: () {
+                context.push('/admin/leave-balances');
+              },
+            ),
+            _AdminActionTile(
+              title: 'طلبات الأذونات',
               subtitle: 'مراجعة الإجازات والأذونات وتعديل البصمات',
               icon: Icons.assignment_late_rounded,
               onTap: () {context.push('/admin/permissions');},

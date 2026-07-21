@@ -12,6 +12,9 @@ import '../../features/dashboard/dashboard_admin_page.dart';
 import '../../features/dashboard/dashboard_employee_page.dart';
 import '../../features/employees/presentation/pages/employees_page.dart';
 import '../../features/activation_codes/presentation/pages/generate_activation_code_page.dart';
+import '../../features/leaves/presentation/pages/admin_leave_balances_page.dart';
+import '../../features/leaves/presentation/pages/admin_leaves_page.dart';
+import '../../features/leaves/presentation/pages/leaves_page.dart';
 import '../../features/permissions/presentation/pages/admin_permissions_page.dart';
 import '../../features/permissions/presentation/pages/permissions_page.dart';
 import '../../features/attendance/presentation/pages/work_schedules_page.dart';
@@ -42,6 +45,18 @@ final appRouterProvider = Provider.autoDispose<GoRouter>((ref) {
     },
 
     routes: [
+      GoRoute(
+        path: '/leaves',
+        builder: (context, state) => const LeavesPage(),
+      ),
+      GoRoute(
+        path: '/admin/leaves',
+        builder: (context, state) => const AdminLeavesPage(),
+      ),
+      GoRoute(
+        path: '/admin/leave-balances',
+        builder: (context, state) => const AdminLeaveBalancesPage(),
+      ),
       GoRoute(
         path: '/login',
         builder: (context, state) => const LoginPage(),
