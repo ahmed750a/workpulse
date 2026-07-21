@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../data/models/admin_employee_item.dart';
 import '../../data/models/leave_balance_model.dart';
@@ -56,6 +57,54 @@ class _AdminLeaveBalancesPageState
     _debounce = Timer(const Duration(milliseconds: 300), () {
       ref.read(leavesProvider.notifier).searchAdminEmployees(value);
     });
+  }
+  Future<void> _prepareYearBalances() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('تهيئة وتفعيل أرصدة السنة'),
+        content: Text('سيتم إنشاء وتفعيل أرصدة سنة $_selectedYear لجميع الموظفين النشطين.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('تنفيذ'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    final result = await ref
+        .read(leavesProvider.notifier)
+        .adminPrepareLeaveBalancesForYear(year: _selectedYear);
+
+    if (!mounted || result == null) return;
+
+    final inserted = result['insertedCount'] ?? 0;
+    final enabled = result['enabledCount'] ?? 0;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('تم التنفيذ: إضافة $inserted - تفعيل $enabled'),
+        backgroundColor: const Color(0xFF0F766E),
+      ),
+    );
+
+    await ref.read(leavesProvider.notifier).loadAdminLeaveData();
+    if (_selectedEmployee != null) {
+      await _loadBalances();
+    }
+  }
+  Future<void> _reloadAdminData() async {
+    await ref.read(leavesProvider.notifier).loadAdminLeaveData();
+    if (_selectedEmployee != null) {
+      await _loadBalances();
+    }
   }
 
   Future<void> _loadBalances() async {
@@ -344,13 +393,26 @@ class _AdminLeaveBalancesPageState
         ),
         actions: [
           IconButton(
+            tooltip: 'شاشة الترحيل',
+            onPressed: () => context.pushNamed('admin-carry-forward'),            icon: const Icon(Icons.sync_alt_rounded),
+          ),
+          IconButton(
+            tooltip: 'تهيئة وتفعيل السنة',
+            onPressed: state.isBootstrapping ? null : _prepareYearBalances,
+            icon: state.isBootstrapping
+                ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            )
+                : const Icon(Icons.auto_fix_high_rounded),
+          ),
+          IconButton(
             tooltip: 'تحديث',
-            onPressed: () async {
-              await ref.read(leavesProvider.notifier).loadAdminLeaveData();
-              if (_selectedEmployee != null) {
-                await _loadBalances();
-              }
-            },
+            onPressed: _reloadAdminData,
             icon: const Icon(Icons.refresh_rounded),
           ),
         ],

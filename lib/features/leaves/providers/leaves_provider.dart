@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../app/providers/supabase_provider.dart';
 import '../data/models/admin_employee_item.dart';
+import '../data/models/carry_policy_item_model.dart';
 import '../data/models/leave_balance_model.dart';
 import '../data/models/leave_request_model.dart';
 import '../data/models/leave_review_item.dart';
@@ -22,10 +23,17 @@ class LeavesState {
   final List<LeaveBalanceModel> adminEmployeeBalances;
   final bool isLoading;
   final bool isSubmitting;
+  final bool isBootstrapping;
+  final bool isApplyingCarryForward;
   final String? error;
   final String adminSearchQuery;
   final int adminEmployeesOffset;
   final bool adminHasMoreEmployees;
+  final bool isPreviewingCarryForward;
+  final List<CarryPolicyItemModel> carryPolicyItems;
+  final Map<String, dynamic>? carryPreviewResult;
+  final bool isLoadingCarryPolicy;
+  final bool isSavingCarryPolicy;
   const LeavesState({
     this.leaveTypes = const [],
     this.balances = const [],
@@ -35,10 +43,17 @@ class LeavesState {
     this.adminEmployeeBalances = const [],
     this.isLoading = false,
     this.isSubmitting = false,
+    this.isBootstrapping = false,
+    this.isApplyingCarryForward = false,
     this.error,
     this.adminSearchQuery = '',
     this.adminEmployeesOffset = 0,
     this.adminHasMoreEmployees = true,
+    this.isPreviewingCarryForward = false,
+    this.carryPolicyItems = const [],
+    this.carryPreviewResult,
+    this.isLoadingCarryPolicy = false,
+    this.isSavingCarryPolicy = false,
   });
 
   LeavesState copyWith({
@@ -50,11 +65,19 @@ class LeavesState {
     List<LeaveBalanceModel>? adminEmployeeBalances,
     bool? isLoading,
     bool? isSubmitting,
+    bool? isBootstrapping,
+    bool? isApplyingCarryForward,
     String? error,
     bool clearError = false,
-  String? adminSearchQuery,
-  int? adminEmployeesOffset,
-  bool? adminHasMoreEmployees,
+    String? adminSearchQuery,
+    int? adminEmployeesOffset,
+    bool? adminHasMoreEmployees,
+    bool? isPreviewingCarryForward,
+    List<CarryPolicyItemModel>? carryPolicyItems,
+    Map<String, dynamic>? carryPreviewResult,
+    bool? isLoadingCarryPolicy,
+    bool? isSavingCarryPolicy,
+    bool clearCarryPreview = false,
   }) {
     return LeavesState(
       leaveTypes: leaveTypes ?? this.leaveTypes,
@@ -65,10 +88,19 @@ class LeavesState {
       adminEmployeeBalances: adminEmployeeBalances ?? this.adminEmployeeBalances,
       isLoading: isLoading ?? this.isLoading,
       isSubmitting: isSubmitting ?? this.isSubmitting,
+      isBootstrapping: isBootstrapping ?? this.isBootstrapping,
+      isApplyingCarryForward:
+      isApplyingCarryForward ?? this.isApplyingCarryForward,
       error: clearError ? null : error ?? this.error,
       adminSearchQuery: adminSearchQuery ?? this.adminSearchQuery,
       adminEmployeesOffset: adminEmployeesOffset ?? this.adminEmployeesOffset,
       adminHasMoreEmployees: adminHasMoreEmployees ?? this.adminHasMoreEmployees,
+      isPreviewingCarryForward:
+      isPreviewingCarryForward ?? this.isPreviewingCarryForward,
+      carryPolicyItems: carryPolicyItems ?? this.carryPolicyItems,
+      carryPreviewResult: clearCarryPreview ? null : carryPreviewResult ?? this.carryPreviewResult,
+      isLoadingCarryPolicy: isLoadingCarryPolicy ?? this.isLoadingCarryPolicy,
+      isSavingCarryPolicy: isSavingCarryPolicy ?? this.isSavingCarryPolicy,
     );
   }
 }
@@ -82,7 +114,158 @@ class LeavesNotifier extends Notifier<LeavesState> {
     ref.watch(sessionVersionProvider);
     return const LeavesState();
   }
+  Future<void> loadCarryPolicyEditor({required int toYear}) async {
+    state = state.copyWith(isLoadingCarryPolicy: true, clearError: true);
 
+    try {
+      final items = await _repository.getCarryPolicyItemsByYear(year: toYear);
+      state = state.copyWith(
+        carryPolicyItems: items,
+        isLoadingCarryPolicy: false,
+        clearCarryPreview: true,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoadingCarryPolicy: false,
+        error: e.toString(),
+      );
+    }
+  }
+
+  void setCarryPolicyTypeEnabled({
+    required String leaveTypeId,
+    required bool isEnabled,
+  }) {
+    final updated = state.carryPolicyItems.map((e) {
+      if (e.leaveTypeId != leaveTypeId) return e;
+      return e.copyWith(isEnabled: isEnabled, maxDays: isEnabled ? e.maxDays : 0);
+    }).toList();
+
+    state = state.copyWith(carryPolicyItems: updated);
+  }
+
+  void setCarryPolicyTypeMaxDays({
+    required String leaveTypeId,
+    required double maxDays,
+  }) {
+    final normalized = maxDays < 0 ? 0.0 : maxDays;
+    final updated = state.carryPolicyItems.map((e) {
+      if (e.leaveTypeId != leaveTypeId) return e;
+      return e.copyWith(maxDays: normalized);
+    }).toList();
+
+    state = state.copyWith(carryPolicyItems: updated);
+  }
+
+  Future<void> saveCarryPolicyEditor({required int toYear}) async {
+    state = state.copyWith(isSavingCarryPolicy: true, clearError: true);
+
+    try {
+      for (final item in state.carryPolicyItems) {
+        await _repository.upsertCarryPolicyItem(
+          year: toYear,
+          leaveTypeId: item.leaveTypeId,
+          isEnabled: item.isEnabled,
+          maxDays: item.maxDays,
+        );
+      }
+      state = state.copyWith(isSavingCarryPolicy: false);
+    } catch (e) {
+      state = state.copyWith(
+        isSavingCarryPolicy: false,
+        error: e.toString(),
+      );
+    }
+  }
+  Future<int?> adminBootstrapLeaveBalancesForYear({
+    required int year,
+  }) async {
+    state = state.copyWith(isBootstrapping: true, clearError: true);
+
+    try {
+      final inserted = await _repository.adminBootstrapLeaveBalancesForYear(
+        year: year,
+      );
+
+      state = state.copyWith(isBootstrapping: false);
+      return inserted;
+    } catch (e) {
+      state = state.copyWith(
+        isBootstrapping: false,
+        error: e.toString(),
+      );
+      return null;
+    }
+  }
+  Future<Map<String, dynamic>?> adminPreviewCarryForward({
+    required int fromYear,
+    required int toYear,
+  }) async {
+    state = state.copyWith(
+      isPreviewingCarryForward: true,
+      clearError: true,
+    );
+
+    try {
+      final result = await _repository.adminPreviewCarryForward(
+        fromYear: fromYear,
+        toYear: toYear,
+      );
+      state = state.copyWith(isPreviewingCarryForward: false);
+      return result;
+    } catch (e) {
+      state = state.copyWith(
+        isPreviewingCarryForward: false,
+        error: e.toString(),
+      );
+      return null;
+    }
+  }
+
+
+
+  Future<Map<String, dynamic>?> adminApplyCarryForward({
+    required int fromYear,
+    required int toYear,
+  }) async {
+    state = state.copyWith(
+      isApplyingCarryForward: true,
+      clearError: true,
+    );
+
+    try {
+      final result = await _repository.adminApplyCarryForward(
+        fromYear: fromYear,
+        toYear: toYear,
+      );
+
+      state = state.copyWith(isApplyingCarryForward: false);
+      return result;
+    } catch (e) {
+      state = state.copyWith(
+        isApplyingCarryForward: false,
+        error: e.toString(),
+      );
+      return null;
+    }
+  }
+  Future<Map<String, int>?> adminPrepareLeaveBalancesForYear({
+    required int year,
+  }) async {
+    state = state.copyWith(isBootstrapping: true, clearError: true);
+
+    try {
+      final result = await _repository.adminPrepareLeaveBalancesForYear(year: year);
+      state = state.copyWith(isBootstrapping: false);
+      return result;
+    } catch (e) {
+      state = state.copyWith(
+        isBootstrapping: false,
+        error: e.toString(),
+      );
+      return null;
+    }
+  }
   Future<void> loadLeavesData() async {
     state = state.copyWith(isLoading: true, clearError: true);
 

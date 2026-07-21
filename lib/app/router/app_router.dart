@@ -12,6 +12,7 @@ import '../../features/dashboard/dashboard_admin_page.dart';
 import '../../features/dashboard/dashboard_employee_page.dart';
 import '../../features/employees/presentation/pages/employees_page.dart';
 import '../../features/activation_codes/presentation/pages/generate_activation_code_page.dart';
+import '../../features/leaves/presentation/pages/admin_carry_forward_page.dart';
 import '../../features/leaves/presentation/pages/admin_leave_balances_page.dart';
 import '../../features/leaves/presentation/pages/admin_leaves_page.dart';
 import '../../features/leaves/presentation/pages/leaves_page.dart';
@@ -60,6 +61,11 @@ final appRouterProvider = Provider.autoDispose<GoRouter>((ref) {
       GoRoute(
         path: '/login',
         builder: (context, state) => const LoginPage(),
+      ),
+      GoRoute(
+        path: '/admin/carry-forward',
+        name: 'admin-carry-forward',
+        builder: (context, state) => const AdminCarryForwardPage(),
       ),
       GoRoute(
         path: '/register',
