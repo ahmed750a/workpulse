@@ -17,7 +17,17 @@ class EmployeeRepository {
       return EmployeeModel.fromJson(item);
     }).toList();
   }
-
+  Future<void> updateEmployeeWorkSchedule({
+    required String employeeId,
+    required String? workScheduleId,
+  }) async {
+    await _client
+        .from('profiles')
+        .update({
+      'work_schedule_id': workScheduleId,
+    })
+        .eq('id', employeeId);
+  }
   Future<void> activateEmployee(String id) async {
     await _client
         .from('profiles')

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../app/providers/supabase_provider.dart';
+import '../../../../../core/services/work_timer_service.dart';
 import '../../data/models/user_model.dart';
 import '../../data/repositories/auth_repository.dart';
 
@@ -34,7 +35,7 @@ class AuthState {
 }
 
 class AuthNotifier extends Notifier<AuthState> {
-  late final AuthRepository _repository;
+  late AuthRepository _repository;
 
   @override
   AuthState build() {
@@ -55,10 +56,15 @@ class AuthNotifier extends Notifier<AuthState> {
       );
 
       state = AuthState(user: user);
+
+      if (user != null) {
+        await WorkTimerService.instance.restoreIfActive(userId: user.id);
+      }
     } catch (e) {
       state = AuthState(error: e.toString());
     }
   }
+
   Future<void> register({
     required String fullName,
     required String email,
@@ -83,15 +89,36 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   Future<void> signOut() async {
-    await _repository.signOut();
+    final currentUserId = state.user?.id;
+
+    // نفرغ الحالة مباشرة حتى ما يظل المستخدم داخل الواجهة
     state = const AuthState();
+
+    // نعمل reset للـ providers المرتبطة بالجلسة
+    ref.read(sessionVersionProvider.notifier).increment();
+
+    try {
+      if (currentUserId != null) {
+        await WorkTimerService.instance.stop(userId: currentUserId);
+      }
+    } catch (_) {}
+
+    try {
+      await WorkTimerService.instance.reset();
+    } catch (_) {}
+
+    try {
+      await _repository.signOut();
+    } catch (_) {}
   }
+
   Future<void> restoreSession() async {
     try {
       final user = await _repository.getCurrentUserProfile();
 
       if (user != null) {
         state = AuthState(user: user);
+        await WorkTimerService.instance.restoreIfActive(userId: user.id);
       }
     } catch (e) {
       state = AuthState(error: e.toString());

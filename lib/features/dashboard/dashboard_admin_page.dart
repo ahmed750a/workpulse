@@ -1,3 +1,4 @@
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -45,13 +46,9 @@ class _DashboardAdminPageState extends ConsumerState<DashboardAdminPage> {
           IconButton(
             tooltip: 'تسجيل الخروج',
             icon: const Icon(Icons.logout_rounded),
-            onPressed: () async {
-              await ref.read(authProvider.notifier).signOut();
-
-              if (context.mounted) {
-                context.go('/login');
+              onPressed: () async {
+                await ref.read(authProvider.notifier).signOut();
               }
-            },
           ),
         ],
       ),
@@ -141,7 +138,13 @@ class _DashboardAdminPageState extends ConsumerState<DashboardAdminPage> {
                     color: const Color(0xFF0F766E),
                   ),
                 ),
-                const SizedBox(width: 14),
+                ElevatedButton(
+                  onPressed: () {
+                    FirebaseCrashlytics.instance.crash();
+                  },
+                  child: const Text("Test Crash"),
+                )
+                ,const SizedBox(width: 14),
                 Expanded(
                   child: _AdminStatCard(
                     title: 'بانتظار التفعيل',
@@ -206,6 +209,16 @@ class _DashboardAdminPageState extends ConsumerState<DashboardAdminPage> {
                 context.push('/activation-codes/generate');
               },
             ),
+
+            _AdminActionTile(
+              title: 'إعدادات الدوام',
+              subtitle: 'إدارة جداول الدوام، السماحية، ونوع الدوام',
+              icon: Icons.schedule_rounded,
+              onTap: () {
+                context.push('/admin/work-schedules');
+              },
+            ),
+
             _AdminActionTile(
               title: 'الحضور اليومي',
               subtitle: 'متابعة حضور وانصراف الموظفين',
@@ -216,7 +229,7 @@ class _DashboardAdminPageState extends ConsumerState<DashboardAdminPage> {
               title: 'الطلبات المعلقة',
               subtitle: 'مراجعة الإجازات والأذونات وتعديل البصمات',
               icon: Icons.assignment_late_rounded,
-              onTap: () {},
+              onTap: () {context.push('/admin/permissions');},
             ),
             _AdminActionTile(
               title: 'التقارير',

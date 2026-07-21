@@ -10,6 +10,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  flutter_dotenv: ^5.2.1
   connectivity_plus: ^6.0.0
   cupertino_icons: ^1.0.8
   flutter_riverpod: ^3.3.1
@@ -21,6 +24,8 @@ dependencies:
   share_plus: ^10.1.4
   flutter_local_notifications: 17.2.2
   shared_preferences: ^2.2.0
+  firebase_core: ^2.32.0
+  firebase_crashlytics: ^3.5.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -33,3 +38,5 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
+  assets:
+    - .env

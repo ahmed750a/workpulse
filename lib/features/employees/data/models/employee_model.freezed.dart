@@ -20,6 +20,8 @@ mixin _$EmployeeModel {
   String get fullName;
   String? get role;
   String? get department;
+  @JsonKey(name: 'work_schedule_id')
+  String? get workScheduleId;
   @JsonKey(name: 'is_active')
   bool? get isActive;
   @JsonKey(name: 'created_at')
@@ -48,6 +50,8 @@ mixin _$EmployeeModel {
             (identical(other.role, role) || other.role == role) &&
             (identical(other.department, department) ||
                 other.department == department) &&
+            (identical(other.workScheduleId, workScheduleId) ||
+                other.workScheduleId == workScheduleId) &&
             (identical(other.isActive, isActive) ||
                 other.isActive == isActive) &&
             (identical(other.createdAt, createdAt) ||
@@ -56,12 +60,12 @@ mixin _$EmployeeModel {
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(
-      runtimeType, id, email, fullName, role, department, isActive, createdAt);
+  int get hashCode => Object.hash(runtimeType, id, email, fullName, role,
+      department, workScheduleId, isActive, createdAt);
 
   @override
   String toString() {
-    return 'EmployeeModel(id: $id, email: $email, fullName: $fullName, role: $role, department: $department, isActive: $isActive, createdAt: $createdAt)';
+    return 'EmployeeModel(id: $id, email: $email, fullName: $fullName, role: $role, department: $department, workScheduleId: $workScheduleId, isActive: $isActive, createdAt: $createdAt)';
   }
 }
 
@@ -77,6 +81,7 @@ abstract mixin class $EmployeeModelCopyWith<$Res> {
       @JsonKey(name: 'full_name') String fullName,
       String? role,
       String? department,
+      @JsonKey(name: 'work_schedule_id') String? workScheduleId,
       @JsonKey(name: 'is_active') bool? isActive,
       @JsonKey(name: 'created_at') String? createdAt});
 }
@@ -99,6 +104,7 @@ class _$EmployeeModelCopyWithImpl<$Res>
     Object? fullName = null,
     Object? role = freezed,
     Object? department = freezed,
+    Object? workScheduleId = freezed,
     Object? isActive = freezed,
     Object? createdAt = freezed,
   }) {
@@ -122,6 +128,10 @@ class _$EmployeeModelCopyWithImpl<$Res>
       department: freezed == department
           ? _self.department
           : department // ignore: cast_nullable_to_non_nullable
+              as String?,
+      workScheduleId: freezed == workScheduleId
+          ? _self.workScheduleId
+          : workScheduleId // ignore: cast_nullable_to_non_nullable
               as String?,
       isActive: freezed == isActive
           ? _self.isActive
@@ -234,6 +244,7 @@ extension EmployeeModelPatterns on EmployeeModel {
             @JsonKey(name: 'full_name') String fullName,
             String? role,
             String? department,
+            @JsonKey(name: 'work_schedule_id') String? workScheduleId,
             @JsonKey(name: 'is_active') bool? isActive,
             @JsonKey(name: 'created_at') String? createdAt)?
         $default, {
@@ -242,8 +253,15 @@ extension EmployeeModelPatterns on EmployeeModel {
     final _that = this;
     switch (_that) {
       case _EmployeeModel() when $default != null:
-        return $default(_that.id, _that.email, _that.fullName, _that.role,
-            _that.department, _that.isActive, _that.createdAt);
+        return $default(
+            _that.id,
+            _that.email,
+            _that.fullName,
+            _that.role,
+            _that.department,
+            _that.workScheduleId,
+            _that.isActive,
+            _that.createdAt);
       case _:
         return orElse();
     }
@@ -270,6 +288,7 @@ extension EmployeeModelPatterns on EmployeeModel {
             @JsonKey(name: 'full_name') String fullName,
             String? role,
             String? department,
+            @JsonKey(name: 'work_schedule_id') String? workScheduleId,
             @JsonKey(name: 'is_active') bool? isActive,
             @JsonKey(name: 'created_at') String? createdAt)
         $default,
@@ -277,8 +296,15 @@ extension EmployeeModelPatterns on EmployeeModel {
     final _that = this;
     switch (_that) {
       case _EmployeeModel():
-        return $default(_that.id, _that.email, _that.fullName, _that.role,
-            _that.department, _that.isActive, _that.createdAt);
+        return $default(
+            _that.id,
+            _that.email,
+            _that.fullName,
+            _that.role,
+            _that.department,
+            _that.workScheduleId,
+            _that.isActive,
+            _that.createdAt);
       case _:
         throw StateError('Unexpected subclass');
     }
@@ -304,6 +330,7 @@ extension EmployeeModelPatterns on EmployeeModel {
             @JsonKey(name: 'full_name') String fullName,
             String? role,
             String? department,
+            @JsonKey(name: 'work_schedule_id') String? workScheduleId,
             @JsonKey(name: 'is_active') bool? isActive,
             @JsonKey(name: 'created_at') String? createdAt)?
         $default,
@@ -311,8 +338,15 @@ extension EmployeeModelPatterns on EmployeeModel {
     final _that = this;
     switch (_that) {
       case _EmployeeModel() when $default != null:
-        return $default(_that.id, _that.email, _that.fullName, _that.role,
-            _that.department, _that.isActive, _that.createdAt);
+        return $default(
+            _that.id,
+            _that.email,
+            _that.fullName,
+            _that.role,
+            _that.department,
+            _that.workScheduleId,
+            _that.isActive,
+            _that.createdAt);
       case _:
         return null;
     }
@@ -328,6 +362,7 @@ class _EmployeeModel implements EmployeeModel {
       @JsonKey(name: 'full_name') required this.fullName,
       this.role,
       this.department,
+      @JsonKey(name: 'work_schedule_id') this.workScheduleId,
       @JsonKey(name: 'is_active') this.isActive,
       @JsonKey(name: 'created_at') this.createdAt});
   factory _EmployeeModel.fromJson(Map<String, dynamic> json) =>
@@ -344,6 +379,9 @@ class _EmployeeModel implements EmployeeModel {
   final String? role;
   @override
   final String? department;
+  @override
+  @JsonKey(name: 'work_schedule_id')
+  final String? workScheduleId;
   @override
   @JsonKey(name: 'is_active')
   final bool? isActive;
@@ -378,6 +416,8 @@ class _EmployeeModel implements EmployeeModel {
             (identical(other.role, role) || other.role == role) &&
             (identical(other.department, department) ||
                 other.department == department) &&
+            (identical(other.workScheduleId, workScheduleId) ||
+                other.workScheduleId == workScheduleId) &&
             (identical(other.isActive, isActive) ||
                 other.isActive == isActive) &&
             (identical(other.createdAt, createdAt) ||
@@ -386,12 +426,12 @@ class _EmployeeModel implements EmployeeModel {
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(
-      runtimeType, id, email, fullName, role, department, isActive, createdAt);
+  int get hashCode => Object.hash(runtimeType, id, email, fullName, role,
+      department, workScheduleId, isActive, createdAt);
 
   @override
   String toString() {
-    return 'EmployeeModel(id: $id, email: $email, fullName: $fullName, role: $role, department: $department, isActive: $isActive, createdAt: $createdAt)';
+    return 'EmployeeModel(id: $id, email: $email, fullName: $fullName, role: $role, department: $department, workScheduleId: $workScheduleId, isActive: $isActive, createdAt: $createdAt)';
   }
 }
 
@@ -409,6 +449,7 @@ abstract mixin class _$EmployeeModelCopyWith<$Res>
       @JsonKey(name: 'full_name') String fullName,
       String? role,
       String? department,
+      @JsonKey(name: 'work_schedule_id') String? workScheduleId,
       @JsonKey(name: 'is_active') bool? isActive,
       @JsonKey(name: 'created_at') String? createdAt});
 }
@@ -431,6 +472,7 @@ class __$EmployeeModelCopyWithImpl<$Res>
     Object? fullName = null,
     Object? role = freezed,
     Object? department = freezed,
+    Object? workScheduleId = freezed,
     Object? isActive = freezed,
     Object? createdAt = freezed,
   }) {
@@ -454,6 +496,10 @@ class __$EmployeeModelCopyWithImpl<$Res>
       department: freezed == department
           ? _self.department
           : department // ignore: cast_nullable_to_non_nullable
+              as String?,
+      workScheduleId: freezed == workScheduleId
+          ? _self.workScheduleId
+          : workScheduleId // ignore: cast_nullable_to_non_nullable
               as String?,
       isActive: freezed == isActive
           ? _self.isActive

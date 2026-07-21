@@ -14,7 +14,8 @@ abstract class EmployeeModel with _$EmployeeModel {
 
     String? role,
     String? department,
-
+    @JsonKey(name: 'work_schedule_id')
+    String? workScheduleId,
     @JsonKey(name: 'is_active')
     bool? isActive,
 

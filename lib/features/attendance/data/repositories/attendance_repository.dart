@@ -1,6 +1,8 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../models/attendance_break_model.dart';
 import '../../../../../core/services/work_timer_service.dart';
 import '../models/attendance_record_model.dart';
+import '../models/work_schedule_model.dart';
 import 'work_schedule_repository.dart';
 
 class AttendanceRepository {
@@ -9,6 +11,14 @@ class AttendanceRepository {
 
   AttendanceRepository(this._client, this._scheduleRepository);
 
+  String _authUserId() {
+    final user = _client.auth.currentUser;
+    if (user == null) {
+      throw Exception('المستخدم غير مسجل الدخول');
+    }
+    return user.id;
+  }
+
   String _dateOnly(DateTime date) {
     final d = date.toLocal();
     return '${d.year.toString().padLeft(4, '0')}-'
@@ -16,104 +26,397 @@ class AttendanceRepository {
         '${d.day.toString().padLeft(2, '0')}';
   }
 
-  DateTime _scheduleTimeToToday(String time) {
-    final now = DateTime.now();
+  DateTime _timeToDateTimeForDate(DateTime date, String time) {
+    final localDate = date.toLocal();
     final parts = time.split(':');
+
     return DateTime(
-      now.year,
-      now.month,
-      now.day,
+      localDate.year,
+      localDate.month,
+      localDate.day,
       int.parse(parts[0]),
       int.parse(parts[1]),
       parts.length > 2 ? int.parse(parts[2]) : 0,
     );
   }
 
-  Future<AttendanceRecordModel?> getTodayRecord(String employeeId) async {
-    final data = await _client
+  int _timeToMinutes(String time) {
+    final parts = time.split(':');
+    return int.parse(parts[0]) * 60 + int.parse(parts[1]);
+  }
+
+  Future<AttendanceBreakModel?> getActiveBreak() async {
+    final employeeId = _authUserId();
+    final rows = await _client
+        .from('attendance_breaks')
+        .select()
+        .eq('employee_id', employeeId)
+        .eq('status', 'active')
+        .order('created_at', ascending: false)
+        .limit(1);
+
+    if (rows.isEmpty) return null;
+    return AttendanceBreakModel.fromJson(rows.first);
+  }
+
+  Future<List<AttendanceBreakModel>> getTodayBreaks() async {
+    final employeeId = _authUserId();
+    final record = await getTodayRecord();
+
+    if (record == null) return [];
+
+    final rows = await _client
+        .from('attendance_breaks')
+        .select()
+        .eq('employee_id', employeeId)
+        .eq('attendance_record_id', record.id)
+        .order('created_at', ascending: false);
+
+    return rows
+        .map<AttendanceBreakModel>(
+          (item) => AttendanceBreakModel.fromJson(item),
+    )
+        .toList();
+  }
+
+  Future<int> getTodayBreakMinutes() async {
+    final breaks = await getTodayBreaks();
+
+    int total = 0;
+
+    for (final item in breaks) {
+      total += item.breakMinutes;
+    }
+
+    return total;
+  }
+
+  Future<AttendanceBreakModel> startBreak() async {
+    final employeeId = _authUserId();
+    final schedule =
+    await _scheduleRepository.getScheduleForEmployee(employeeId);
+
+    if (schedule.scheduleType != 'hourly') {
+      throw Exception('الراحة متاحة فقط لنظام دوام الساعات');
+    }
+
+    final record = await getTodayRecord();
+
+    if (record == null || record.checkInAt == null) {
+      throw Exception('يجب بدء الدوام الساعي أولاً');
+    }
+
+    if (record.checkOutAt != null) {
+      throw Exception('لا يمكن بدء راحة بعد إنهاء الدوام');
+    }
+
+    final activeBreak = await getActiveBreak();
+    if (activeBreak != null) {
+      throw Exception('يوجد راحة نشطة بالفعل');
+    }
+
+    final now = DateTime.now();
+
+    final rows = await _client.from('attendance_breaks').insert({
+      'attendance_record_id': record.id,
+      'employee_id': employeeId,
+      'break_start_at': now.toUtc().toIso8601String(),
+      'status': 'active',
+      'break_minutes': 0,
+      'updated_at': now.toUtc().toIso8601String(),
+    }).select();
+
+    if (rows.isEmpty) {
+      throw Exception('فشل بدء الراحة');
+    }
+
+    return AttendanceBreakModel.fromJson(rows.first);
+  }
+
+  Future<AttendanceBreakModel> endBreak() async {
+    final employeeId = _authUserId();
+    final activeBreak = await getActiveBreak();
+
+    if (activeBreak == null) {
+      throw Exception('لا توجد راحة نشطة');
+    }
+
+    final now = DateTime.now();
+    final start = DateTime.parse(activeBreak.breakStartAt).toLocal();
+
+    int minutes = now.difference(start).inMinutes;
+    if (minutes < 0) minutes = 0;
+
+    final rows = await _client
+        .from('attendance_breaks')
+        .update({
+      'break_end_at': now.toUtc().toIso8601String(),
+      'break_minutes': minutes,
+      'status': 'ended',
+      'updated_at': now.toUtc().toIso8601String(),
+    })
+        .eq('id', activeBreak.id)
+        .select();
+
+    if (rows.isEmpty) {
+      throw Exception('فشل إنهاء الراحة');
+    }
+
+    return AttendanceBreakModel.fromJson(rows.first);
+  }
+
+  Future<Map<String, dynamic>?> _getApprovedPermission({
+    required String employeeId,
+    required String date,
+    required String type,
+  }) async {
+    final rows = await _client
+        .from('permissions')
+        .select()
+        .eq('employee_id', employeeId)
+        .eq('permission_date', date)
+        .eq('type', type)
+        .eq('status', 'approved')
+        .order('created_at', ascending: false)
+        .limit(1);
+
+    if (rows.isEmpty) return null;
+    return rows.first;
+  }
+
+  Future<AttendanceRecordModel?> getTodayRecord() async {
+    final employeeId = _authUserId();
+
+    final rows = await _client
         .from('attendance_records')
         .select()
         .eq('employee_id', employeeId)
         .eq('attendance_date', _dateOnly(DateTime.now()))
-        .maybeSingle();
+        .order('created_at', ascending: false)
+        .limit(1);
 
-    if (data == null) return null;
-    return AttendanceRecordModel.fromJson(data);
+    if (rows.isEmpty) return null;
+    return AttendanceRecordModel.fromJson(rows.first);
   }
+  DateTime _safeCheckoutLocalTime({
+    required AttendanceRecordModel existing,
+    required DateTime rawCheckoutLocal,
+  }) {
+    // وقت الحضور الفعلي (محول لـ local)
+    final checkInLocal = DateTime.parse(existing.checkInAt!).toLocal();
 
-  Future<AttendanceRecordModel> checkIn(String employeeId) async {
+    // 1) لا نسمح بانصراف قبل الحضور
+    var checkoutLocal = rawCheckoutLocal.isBefore(checkInLocal)
+        ? checkInLocal
+        : rawCheckoutLocal;
+
+    // 2) لا نسمح بانصراف في المستقبل
+    final nowLocal = DateTime.now();
+    if (checkoutLocal.isAfter(nowLocal)) {
+      checkoutLocal = nowLocal;
+    }
+
+    return checkoutLocal;
+  }
+  Future<AttendanceRecordModel> checkIn() async {
+    final employeeId = _authUserId();
     final schedule =
     await _scheduleRepository.getScheduleForEmployee(employeeId);
+
     final now = DateTime.now();
+    final today = _dateOnly(now);
 
     if (!schedule.workDays.contains(now.weekday)) {
       throw Exception('اليوم ليس ضمن أيام الدوام الرسمية');
     }
 
-    final existing = await getTodayRecord(employeeId);
+    final existing = await getTodayRecord();
     if (existing != null) {
-      throw Exception('تم تسجيل الحضور مسبقاً لهذا اليوم');
+      // لو عنده حضور اليوم لكن بدون انصراف → نعيد استخدام السجل
+      if (existing.checkOutAt == null) {
+        final checkInStr = existing.checkInAt;
+
+        if (checkInStr != null) {
+          // نشغّل المؤقت من وقت الحضور الفعلي
+          final checkInTime = DateTime.parse(checkInStr).toLocal();
+          await WorkTimerService.instance.start(
+            userId: employeeId,
+            checkInTime: checkInTime,
+          );
+        }
+
+        // نرجّع نفس السجل الموجود، بدون إنشاء واحد جديد
+        return existing;
+      }
+
+      // لو لديه حضور + انصراف كامل لنفس اليوم → نمنع دوام ثاني
+      throw Exception('تم تسجيل دوام كامل لهذا اليوم مسبقاً.');
     }
 
     int lateMinutes = 0;
+    int totalLateMinutes = 0;
+    int approvedLateMinutes = 0;
+    int unapprovedLateMinutes = 0;
     String status = 'checked_in';
 
     if (schedule.scheduleType == 'fixed') {
-      final officialStart = _scheduleTimeToToday(schedule.startTime);
+      final officialStart = _timeToDateTimeForDate(now, schedule.startTime);
+      final officialEnd = _timeToDateTimeForDate(now, schedule.endTime);
+
+      if (!schedule.allowCheckInAfterEndTime && now.isAfter(officialEnd)) {
+        throw Exception('لا يمكن تسجيل الحضور بعد نهاية وقت الدوام الرسمي');
+      }
+
+      if (now.isAfter(officialStart)) {
+        totalLateMinutes = now.difference(officialStart).inMinutes;
+      }
+
       final allowedStart =
       officialStart.add(Duration(minutes: schedule.graceMinutes));
 
-      if (now.isAfter(allowedStart)) {
-        lateMinutes = now.difference(officialStart).inMinutes;
-        status = 'late';
+      final approvedLatePermission = await _getApprovedPermission(
+        employeeId: employeeId,
+        date: today,
+        type: 'late_arrival',
+      );
+
+      if (approvedLatePermission != null) {
+        final permissionEndTime = _timeToDateTimeForDate(
+          now,
+          approvedLatePermission['end_time'].toString(),
+        );
+
+        final approvedEnd =
+        permissionEndTime.isBefore(now) ? permissionEndTime : now;
+
+        if (approvedEnd.isAfter(officialStart)) {
+          approvedLateMinutes = approvedEnd.difference(officialStart).inMinutes;
+        }
+
+        if (approvedLateMinutes > totalLateMinutes) {
+          approvedLateMinutes = totalLateMinutes;
+        }
+
+        unapprovedLateMinutes = totalLateMinutes - approvedLateMinutes;
+        if (unapprovedLateMinutes < 0) {
+          unapprovedLateMinutes = 0;
+        }
+
+        lateMinutes = unapprovedLateMinutes;
+
+        if (totalLateMinutes > 0 && unapprovedLateMinutes == 0) {
+          status = 'approved_late';
+        } else if (unapprovedLateMinutes > 0 && approvedLateMinutes > 0) {
+          status = 'partially_approved_late';
+        } else if (unapprovedLateMinutes > 0) {
+          status = 'late';
+        }
+      } else {
+        if (now.isAfter(allowedStart)) {
+          totalLateMinutes = now.difference(officialStart).inMinutes;
+          approvedLateMinutes = 0;
+          unapprovedLateMinutes = totalLateMinutes;
+          lateMinutes = unapprovedLateMinutes;
+          status = 'late';
+        }
       }
     }
 
-    final data = await _client
-        .from('attendance_records')
-        .insert({
+    if (schedule.scheduleType == 'hourly') {
+      status = 'checked_in';
+      lateMinutes = 0;
+      totalLateMinutes = 0;
+      approvedLateMinutes = 0;
+      unapprovedLateMinutes = 0;
+    }
+
+    final rows = await _client.from('attendance_records').insert({
       'employee_id': employeeId,
-      'attendance_date': _dateOnly(now),
+      'attendance_date': today,
       'check_in_at': now.toUtc().toIso8601String(),
       'status': status,
       'late_minutes': lateMinutes,
+      'total_late_minutes': totalLateMinutes,
+      'approved_late_minutes': approvedLateMinutes,
+      'unapproved_late_minutes': unapprovedLateMinutes,
       'early_leave_minutes': 0,
+      'approved_early_leave_minutes': 0,
+      'unapproved_early_leave_minutes': 0,
       'worked_minutes': 0,
       'updated_at': now.toUtc().toIso8601String(),
-    })
-        .select()
-        .single();
+    }).select();
 
-    await WorkTimerService.instance.start(checkInTime: now);
-    return AttendanceRecordModel.fromJson(data);
+    if (rows.isEmpty) {
+      throw Exception('فشل إنشاء سجل الحضور');
+    }
+
+    await WorkTimerService.instance.start(
+      userId: employeeId,
+      checkInTime: now,
+    );
+    return AttendanceRecordModel.fromJson(rows.first);
+  }
+  Future<AttendanceRecordModel> checkOut() async {
+    final employeeId = _authUserId();
+
+    // 1) نتأكد من وجود سجل وعدم وجود انصراف
+    final existing = await getTodayRecord();
+    if (existing == null || existing.checkInAt == null) {
+      throw Exception('لا يوجد حضور مسجل اليوم.');
+    }
+    if (existing.checkOutAt != null) {
+      throw Exception('تم تسجيل الانصراف مسبقاً لهذا اليوم.');
+    }
+
+    // 2) نحسب وقت الانصراف الخام (من الآن)، ثم نمرره عبر دالة الأمان
+    final rawCheckoutLocal = DateTime.now();
+    final safeCheckoutLocal = _safeCheckoutLocalTime(
+      existing: existing,
+      rawCheckoutLocal: rawCheckoutLocal,
+    );
+
+    // 3) نستدعي دالة موحدة تقوم بكل الحسابات والتحديث
+    return _performCheckOut(employeeId, safeCheckoutLocal);
   }
 
-  Future<AttendanceRecordModel> checkOut(String employeeId) async {
-    // ✅ نستخدم DateTime.now() للانصراف العادي
-    return _performCheckOut(employeeId, DateTime.now());
-  }
-
-  // ✅ دالة جديدة للانصراف المعلق بوقت محدد
   Future<AttendanceRecordModel> checkOutWithTime(
-      String employeeId,
-      DateTime checkOutTime,
+      DateTime actualCheckoutTime,
       ) async {
-    return _performCheckOut(employeeId, checkOutTime);
+    final employeeId = _authUserId();
+
+    final existing = await getTodayRecord();
+    if (existing == null || existing.checkInAt == null) {
+      throw Exception('لا يوجد حضور مسجل اليوم.');
+    }
+    if (existing.checkOutAt != null) {
+      throw Exception('تم تسجيل الانصراف مسبقاً لهذا اليوم.');
+    }
+
+    // 1) نحول الوقت القادم من offline إلى local، ثم نحميه
+    final rawCheckoutLocal = actualCheckoutTime.toLocal();
+    final safeCheckoutLocal = _safeCheckoutLocalTime(
+      existing: existing,
+      rawCheckoutLocal: rawCheckoutLocal,
+    );
+
+    // 2) نستخدم نفس المسار الموحد
+    return _performCheckOut(employeeId, safeCheckoutLocal);
   }
 
-  // ✅ المنطق الموحد للانصراف
   Future<AttendanceRecordModel> _performCheckOut(
       String employeeId,
       DateTime checkOutTime,
       ) async {
-    final existing = await getTodayRecord(employeeId);
+    final existing = await getTodayRecord();
 
     if (existing == null) {
       throw Exception('لا يوجد تسجيل حضور لهذا اليوم');
     }
+
     if (existing.checkInAt == null) {
       throw Exception('سجل الحضور غير مكتمل');
     }
+
     if (existing.checkOutAt != null) {
       throw Exception('تم تسجيل الانصراف مسبقاً لهذا اليوم');
     }
@@ -122,36 +425,82 @@ class AttendanceRepository {
     await _scheduleRepository.getScheduleForEmployee(employeeId);
 
     final checkInAt = DateTime.parse(existing.checkInAt!).toLocal();
-    int workedMinutes = checkOutTime.difference(checkInAt).inMinutes;
-    if (workedMinutes < 0) workedMinutes = 0;
 
+    final activeBreak = await getActiveBreak();
+    if (activeBreak != null) {
+      throw Exception(
+        'لا يمكن إنهاء الدوام أثناء وجود راحة نشطة. يرجى إنهاء الراحة أولاً.',
+      );
+    }
+
+    final totalBreakMinutes = await getTodayBreakMinutes();
+
+    int workedMinutes =
+        checkOutTime.difference(checkInAt).inMinutes - totalBreakMinutes;
+
+    if (workedMinutes < 0) workedMinutes = 0;
     int earlyLeaveMinutes = 0;
+    int approvedEarlyLeave = 0;
+    int unapprovedEarlyLeave = 0;
     String status = 'checked_out';
 
     if (schedule.scheduleType == 'fixed') {
-      // ✅ نحسب وقت نهاية الدوام بناءً على يوم الانصراف الفعلي
-      final checkOutDate = checkOutTime.toLocal();
-      final officialEnd = DateTime(
-        checkOutDate.year,
-        checkOutDate.month,
-        checkOutDate.day,
-        int.parse(schedule.endTime.split(':')[0]),
-        int.parse(schedule.endTime.split(':')[1]),
+      final officialEnd = _timeToDateTimeForDate(
+        checkOutTime,
+        schedule.endTime,
       );
 
       if (checkOutTime.isBefore(officialEnd)) {
         earlyLeaveMinutes = officialEnd.difference(checkOutTime).inMinutes;
-      }
 
-      if (existing.lateMinutes > 0 && earlyLeaveMinutes > 0) {
-        status = 'late_and_early_leave';
-      } else if (existing.lateMinutes > 0) {
-        status = 'late_checked_out';
-      } else if (earlyLeaveMinutes > 0) {
-        status = 'early_leave';
+        final approvedEarlyPermission = await _getApprovedPermission(
+          employeeId: employeeId,
+          date: _dateOnly(checkOutTime),
+          type: 'early_leave',
+        );
+
+        if (approvedEarlyPermission != null) {
+          final permissionStart =
+          approvedEarlyPermission['start_time'].toString();
+
+          final permissionStartMinutes = _timeToMinutes(permissionStart);
+          final officialEndMinutes = _timeToMinutes(schedule.endTime);
+
+          approvedEarlyLeave = officialEndMinutes - permissionStartMinutes;
+
+          if (approvedEarlyLeave < 0) {
+            approvedEarlyLeave = 0;
+          }
+
+          if (approvedEarlyLeave > earlyLeaveMinutes) {
+            approvedEarlyLeave = earlyLeaveMinutes;
+          }
+
+          unapprovedEarlyLeave = earlyLeaveMinutes - approvedEarlyLeave;
+
+          if (unapprovedEarlyLeave < 0) {
+            unapprovedEarlyLeave = 0;
+          }
+
+          if (unapprovedEarlyLeave == 0) {
+            status = 'early_leave_approved';
+          } else if (approvedEarlyLeave > 0) {
+            status = 'early_leave_partial';
+          } else {
+            status = 'early_leave';
+          }
+        } else {
+          approvedEarlyLeave = 0;
+          unapprovedEarlyLeave = earlyLeaveMinutes;
+          status = 'early_leave';
+        }
+      } else {
+        status =
+        existing.lateMinutes > 0 ? 'late_checked_out' : 'checked_out';
       }
-    } else {
+    } else if (schedule.scheduleType == 'hourly') {
       final remaining = schedule.requiredMinutes - workedMinutes;
+
       if (remaining > 0) {
         status = 'hours_incomplete';
       } else if (workedMinutes > schedule.requiredMinutes) {
@@ -161,27 +510,32 @@ class AttendanceRepository {
       }
     }
 
-    final data = await _client
+    final rows = await _client
         .from('attendance_records')
         .update({
       'check_out_at': checkOutTime.toUtc().toIso8601String(),
       'worked_minutes': workedMinutes,
       'early_leave_minutes': earlyLeaveMinutes,
+      'approved_early_leave_minutes': approvedEarlyLeave,
+      'unapproved_early_leave_minutes': unapprovedEarlyLeave,
       'status': status,
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     })
         .eq('id', existing.id)
-        .select()
-        .single();
+        .select();
 
-    await WorkTimerService.instance.stop();
-    return AttendanceRecordModel.fromJson(data);
+    if (rows.isEmpty) {
+      throw Exception('فشل تحديث سجل الانصراف');
+    }
+
+    await WorkTimerService.instance.stop(userId: employeeId);
+
+    return AttendanceRecordModel.fromJson(rows.first);
   }
-
   Future<List<AttendanceRecordModel>> getMyMonthlyRecords(
-      String employeeId,
       DateTime month,
       ) async {
+    final employeeId = _authUserId();
     final start = DateTime(month.year, month.month, 1);
     final end = DateTime(month.year, month.month + 1, 1);
 
@@ -198,6 +552,11 @@ class AttendanceRepository {
           (item) => AttendanceRecordModel.fromJson(item),
     )
         .toList();
+  }
+
+  Future<WorkScheduleModel> getMyWorkSchedule() async {
+    final employeeId = _authUserId();
+    return _scheduleRepository.getScheduleForEmployee(employeeId);
   }
 
   Future<List<AttendanceRecordModel>> getTodayAllRecords() async {

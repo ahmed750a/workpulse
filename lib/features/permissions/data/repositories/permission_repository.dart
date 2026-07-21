@@ -1,6 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../models/permission_review_item.dart';
 import '../models/permission_model.dart';
-
 class PermissionRepository {
   final SupabaseClient _client;
 
@@ -18,8 +18,47 @@ class PermissionRepository {
         .map<PermissionModel>((item) => PermissionModel.fromJson(item))
         .toList();
   }
+  Future<List<PermissionReviewItem>> getPendingPermissionsForReview() async {
+    final rows = await _client
+        .from('permissions')
+        .select('''
+        *,
+        profiles!permissions_employee_id_fkey(
+          full_name,
+          email,
+          work_schedule_id,
+          work_schedules(
+            name,
+            start_time,
+            end_time,
+            grace_minutes,
+            schedule_type
+          )
+        )
+      ''')
+        .eq('status', 'pending')
+        .order('created_at', ascending: false);
 
+    return rows.map<PermissionReviewItem>((item) {
+      final profile = item['profiles'] as Map<String, dynamic>?;
+      final schedule = profile?['work_schedules'] as Map<String, dynamic>?;
+
+      return PermissionReviewItem(
+        permission: PermissionModel.fromJson(item),
+        employeeName: profile?['full_name']?.toString() ?? 'غير معروف',
+        employeeEmail: profile?['email']?.toString() ?? '',
+        scheduleName: schedule?['name']?.toString(),
+        scheduleStartTime: schedule?['start_time']?.toString(),
+        scheduleEndTime: schedule?['end_time']?.toString(),
+        graceMinutes: schedule?['grace_minutes'] is num
+            ? (schedule?['grace_minutes'] as num).toInt()
+            : null,
+        scheduleType: schedule?['schedule_type']?.toString(),
+      );
+    }).toList();
+  }
   // ✅ إنشاء طلب إذن جديد
+// ✅ إنشاء طلب إذن جديد
   Future<PermissionModel> createPermission({
     required String employeeId,
     required String permissionDate,
@@ -28,19 +67,32 @@ class PermissionRepository {
     required String type,
     required String reason,
   }) async {
-    // التحقق من عدم وجود طلب مكرر لنفس اليوم ونفس النوع
-    final existing = await _client
+    // 1) منع طلب pending مكرر
+    final existingPending = await _client
         .from('permissions')
-        .select()
+        .select('id')
         .eq('employee_id', employeeId)
         .eq('permission_date', permissionDate)
         .eq('type', type)
-        .not('status', 'eq', 'rejected')
-        .not('status', 'eq', 'cancelled')
+        .eq('status', 'pending')
         .maybeSingle();
 
-    if (existing != null) {
-      throw Exception('يوجد طلب إذن مسبق لهذا اليوم بنفس النوع');
+    if (existingPending != null) {
+      throw Exception('يوجد طلب لنفس النوع في هذا اليوم وهو قيد المراجعة.');
+    }
+
+    // 2) منع طلب approved مكرر
+    final existingApproved = await _client
+        .from('permissions')
+        .select('id')
+        .eq('employee_id', employeeId)
+        .eq('permission_date', permissionDate)
+        .eq('type', type)
+        .eq('status', 'approved')
+        .maybeSingle();
+
+    if (existingApproved != null) {
+      throw Exception('يوجد طلب معتمد مسبقا لنفس النوع في هذا اليوم.');
     }
 
     final data = await _client

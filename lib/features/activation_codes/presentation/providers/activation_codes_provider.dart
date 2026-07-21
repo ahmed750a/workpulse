@@ -46,7 +46,7 @@ class ActivationCodesNotifier extends Notifier<ActivationCodesState> {
   @override
   ActivationCodesState build() {
     _repository = ref.read(activationCodeRepositoryProvider);
-    loadCodes();
+    ref.watch(sessionVersionProvider); // ✅ يربط بعمر الجلسة
     return const ActivationCodesState();
   }
 

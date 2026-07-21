@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/attendance_provider.dart';
-
+import '../../../../../core/utils/time_formatters.dart';
 class MonthlyAttendancePage extends ConsumerStatefulWidget {
   const MonthlyAttendancePage({super.key});
 
@@ -57,10 +57,7 @@ class _MonthlyAttendancePageState
   }
 
   String _formatTime(String? value) {
-    if (value == null) return '--:--';
-    final date = DateTime.parse(value).toLocal();
-    return '${date.hour.toString().padLeft(2, '0')}:'
-        '${date.minute.toString().padLeft(2, '0')}';
+    return formatDateTimeToTime12(value);
   }
 
   String _formatWorkedMinutes(int minutes) {
@@ -99,22 +96,37 @@ class _MonthlyAttendancePageState
     switch (status) {
       case 'checked_in':
         return const Color(0xFF0284C7);
+
       case 'late':
+        return const Color(0xFFDC2626);
+
+      case 'approved_late':
+        return const Color(0xFF0F766E);
+
+      case 'partially_approved_late':
         return const Color(0xFFF59E0B);
+
       case 'checked_out':
         return const Color(0xFF0F766E);
+
       case 'early_leave':
         return const Color(0xFFEC4899);
+
       case 'late_checked_out':
         return const Color(0xFFF59E0B);
+
       case 'late_and_early_leave':
         return const Color(0xFFDC2626);
+
       case 'hours_incomplete':
         return const Color(0xFFEC4899);
+
       case 'hours_completed':
         return const Color(0xFF0F766E);
+
       case 'hours_completed_with_overtime':
         return const Color(0xFF7C3AED);
+
       default:
         return const Color(0xFF94A3B8);
     }
@@ -124,22 +136,37 @@ class _MonthlyAttendancePageState
     switch (status) {
       case 'checked_in':
         return 'داخل الدوام';
+
       case 'late':
-        return 'متأخر';
+        return 'تأخير غير معتمد';
+
+      case 'approved_late':
+        return 'تأخير معتمد';
+
+      case 'partially_approved_late':
+        return 'تأخير جزئي';
+
       case 'checked_out':
         return 'مكتمل';
+
       case 'early_leave':
         return 'خروج مبكر';
+
       case 'late_checked_out':
         return 'مكتمل مع تأخير';
+
       case 'late_and_early_leave':
         return 'تأخير وخروج مبكر';
+
       case 'hours_incomplete':
         return 'ساعات ناقصة';
+
       case 'hours_completed':
         return 'ساعات مكتملة';
+
       case 'hours_completed_with_overtime':
-        return 'أوفرتايم';
+        return 'أوفر تايم';
+
       default:
         return 'غير محدد';
     }

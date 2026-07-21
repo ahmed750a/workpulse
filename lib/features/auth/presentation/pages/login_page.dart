@@ -52,17 +52,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
       password: passwordController.text.trim(),
     );
 
-    final authState = ref.read(authProvider);
-
-    if (authState.user != null && mounted) {
-      final role = authState.user!.role;
-
-      if (role == 'admin') {
-        context.go('/admin');
-      } else {
-        context.go('/employee');
-      }
-    }
+    // لا نستخدم context.go هنا
+    // ref.listen في app_router سيتولى توجيه المستخدم
   }
 
   @override

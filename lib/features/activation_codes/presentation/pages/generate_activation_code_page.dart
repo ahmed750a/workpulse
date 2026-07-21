@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
-
+import '../../data/models/activation_code_model.dart';
 import '../providers/activation_codes_provider.dart';
 
 class ActivationCodesPage extends ConsumerStatefulWidget {
@@ -113,13 +113,13 @@ class _ActivationCodesPageState extends ConsumerState<ActivationCodesPage>
       body: TabBarView(
         controller: _tabController,
         children: [
-          _CodesListTab(
-            isLoading: state.isLoading,
-            error: state.error,
-            codes: state.codes,
-            onCopy: _copyCode,
-            onShare: _shareCode,
-          ),
+        _CodesListTab(
+        isLoading: state.isLoading,
+        error: state.error,
+        codes: state.codes,         // ✅ هذا أصلاً List<ActivationCodeModel>
+        onCopy: _copyCode,
+        onShare: _shareCode,
+      ),
           _CreateCodeTab(
             formKey: _formKey,
             nameController: _nameController,
@@ -147,7 +147,7 @@ class _CodesListTab extends ConsumerWidget {
 
   final bool isLoading;
   final String? error;
-  final List<dynamic> codes;
+  final List<ActivationCodeModel> codes;
   final Future<void> Function(String code) onCopy;
   final Future<void> Function(String code) onShare;
 

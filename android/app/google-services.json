@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "210404304038",
+    "project_id": "workpulse-production",
+    "storage_bucket": "workpulse-production.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:210404304038:android:afabbc9ba25a014d71c067",
+        "android_client_info": {
+          "package_name": "com.workpulse.hr.workpulse"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDUvy3T3Hdn92eWaZeHWrtHO62fFRmlLXI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

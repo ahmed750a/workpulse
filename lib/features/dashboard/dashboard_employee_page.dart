@@ -43,16 +43,37 @@ class _DashboardEmployeePageState extends ConsumerState<DashboardEmployeePage> {
     switch (status) {
       case 'checked_in':
         return 'داخل الدوام';
+
       case 'late':
-        return 'متأخر';
+        return 'تأخير غير معتمد';
+
+      case 'approved_late':
+        return 'تأخير معتمد';
+
+      case 'partially_approved_late':
+        return 'تأخير جزئي';
+
       case 'checked_out':
         return 'مكتمل';
+
       case 'early_leave':
         return 'خروج مبكر';
+
       case 'late_checked_out':
         return 'مكتمل مع تأخير';
+
       case 'late_and_early_leave':
         return 'تأخير وخروج مبكر';
+
+      case 'hours_incomplete':
+        return 'ساعات ناقصة';
+
+      case 'hours_completed':
+        return 'ساعات مكتملة';
+
+      case 'hours_completed_with_overtime':
+        return 'أوفر تايم';
+
       default:
         return 'لم يبدأ';
     }
@@ -77,13 +98,14 @@ class _DashboardEmployeePageState extends ConsumerState<DashboardEmployeePage> {
           IconButton(
             tooltip: 'تسجيل الخروج',
             icon: const Icon(Icons.logout_rounded),
-            onPressed: () async {
-              await ref.read(authProvider.notifier).signOut();
-
-              if (context.mounted) {
+              onPressed: () async {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('logout pressed')),
+                );
+                await ref.read(authProvider.notifier).signOut();
+                if (!context.mounted) return;
                 context.go('/login');
               }
-            },
           ),
         ],
       ),

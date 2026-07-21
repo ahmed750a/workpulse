@@ -39,10 +39,29 @@ class EmployeesNotifier extends Notifier<EmployeesState> {
   @override
   EmployeesState build() {
     repository = ref.read(employeeRepositoryProvider);
-    loadEmployees();
-    return const EmployeesState();
+    ref.watch(sessionVersionProvider); // يربط الـ state بعمر الجلسة
+    return const EmployeesState();     // بدون أي طلب شبكة هنا
   }
+  Future<void> updateEmployeeWorkSchedule({
+    required String employeeId,
+    required String? workScheduleId,
+  }) async {
+    state = state.copyWith(isLoading: true, clearError: true);
 
+    try {
+      await repository.updateEmployeeWorkSchedule(
+        employeeId: employeeId,
+        workScheduleId: workScheduleId,
+      );
+
+      await loadEmployees();
+    } catch (e) {
+      state = state.copyWith(
+        error: e.toString(),
+        isLoading: false,
+      );
+    }
+  }
   Future<void> loadEmployees() async {
     state = state.copyWith(isLoading: true);
     try {

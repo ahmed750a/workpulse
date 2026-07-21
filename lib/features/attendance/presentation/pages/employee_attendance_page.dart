@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
+import '../../data/models/attendance_break_model.dart';
+import '../../../../core/utils/time_formatters.dart';
 import '../providers/attendance_provider.dart';
 import '../../../../../core/services/work_timer_service.dart';
+
 class EmployeeAttendancePage extends ConsumerStatefulWidget {
   const EmployeeAttendancePage({super.key});
 
@@ -11,11 +13,7 @@ class EmployeeAttendancePage extends ConsumerStatefulWidget {
       _EmployeeAttendancePageState();
 }
 
-class _EmployeeAttendancePageState
-    extends ConsumerState<EmployeeAttendancePage> {
-
-
-
+class _EmployeeAttendancePageState extends ConsumerState<EmployeeAttendancePage> {
   String _formatLiveDuration(Duration duration) {
     final hours = duration.inHours.toString().padLeft(2, '0');
     final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
@@ -23,6 +21,7 @@ class _EmployeeAttendancePageState
 
     return '$hours:$minutes:$seconds';
   }
+
   @override
   void initState() {
     super.initState();
@@ -30,18 +29,6 @@ class _EmployeeAttendancePageState
     Future.microtask(() {
       ref.read(attendanceProvider.notifier).loadTodayRecord();
     });
-  }
-
-
-  String _formatDateTime(String? value) {
-    if (value == null) return '--';
-
-    final date = DateTime.parse(value).toLocal();
-
-    final hour = date.hour.toString().padLeft(2, '0');
-    final minute = date.minute.toString().padLeft(2, '0');
-
-    return '$hour:$minute';
   }
 
   String _formatWorkedMinutes(int minutes) {
@@ -60,9 +47,14 @@ class _EmployeeAttendancePageState
   Widget build(BuildContext context) {
     final state = ref.watch(attendanceProvider);
     final record = state.todayRecord;
-
+    final schedule = state.currentSchedule;
+    final isHourlySchedule = schedule?.scheduleType == 'hourly';
     final hasCheckedIn = record?.checkInAt != null;
     final hasCheckedOut = record?.checkOutAt != null;
+
+    final activeBreak = state.activeBreak;
+    final totalBreakMinutes = state.totalBreakMinutes;
+    final hasActiveBreak = activeBreak != null;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -144,9 +136,27 @@ class _EmployeeAttendancePageState
                 ],
               ),
             ),
-
             const SizedBox(height: 22),
+            if (isHourlySchedule && schedule != null) ...[
+              StreamBuilder<Duration>(
+                stream: WorkTimerService.instance.durationStream,
+                builder: (context, snapshot) {
+                  final liveDuration = snapshot.data ?? Duration.zero;
 
+                  final workedMinutes = hasCheckedIn && !hasCheckedOut
+                      ? liveDuration.inMinutes
+                      : record?.workedMinutes ?? 0;
+
+                  return _HourlyScheduleOverviewCard(
+                    requiredMinutes: schedule.requiredMinutes,
+                    workedMinutes: workedMinutes,
+                    hasCheckedIn: hasCheckedIn,
+                    hasCheckedOut: hasCheckedOut,
+                  );
+                },
+              ),
+              const SizedBox(height: 22),
+            ],
             if (state.error != null)
               Container(
                 margin: const EdgeInsets.only(bottom: 16),
@@ -165,29 +175,29 @@ class _EmployeeAttendancePageState
                   ),
                 ),
               ),
-
             Row(
               children: [
                 Expanded(
                   child: _AttendanceInfoCard(
-                    title: 'وقت الحضور',
-                    value: _formatDateTime(record?.checkInAt),
+                    title:
+                    isHourlySchedule ? 'بداية الدوام الساعي' : 'وقت الحضور',
+                    value: formatDateTimeToTime12(record?.checkInAt),
                     icon: Icons.login_rounded,
                   ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: _AttendanceInfoCard(
-                    title: 'وقت الانصراف',
-                    value: _formatDateTime(record?.checkOutAt),
+                    title: isHourlySchedule
+                        ? 'نهاية الدوام الساعي'
+                        : 'وقت الانصراف',
+                    value: formatDateTimeToTime12(record?.checkOutAt),
                     icon: Icons.logout_rounded,
                   ),
                 ),
               ],
             ),
-
             const SizedBox(height: 14),
-
             StreamBuilder<Duration>(
               stream: WorkTimerService.instance.durationStream,
               builder: (context, snapshot) {
@@ -205,9 +215,7 @@ class _EmployeeAttendancePageState
                 );
               },
             ),
-
             const SizedBox(height: 26),
-
             SizedBox(
               height: 56,
               child: ElevatedButton.icon(
@@ -226,7 +234,8 @@ class _EmployeeAttendancePageState
                   ),
                 )
                     : const Icon(Icons.login_rounded),
-                label: const Text('تسجيل حضور'),
+                label:
+                Text(isHourlySchedule ? 'بدء الدوام الساعي' : 'تسجيل حضور'),
                 style: ElevatedButton.styleFrom(
                   elevation: 0,
                   backgroundColor: const Color(0xFF0F766E),
@@ -242,19 +251,51 @@ class _EmployeeAttendancePageState
                 ),
               ),
             ),
-
             const SizedBox(height: 14),
-
-            SizedBox(
+            hasActiveBreak
+                ? Tooltip(
+              message: 'أنهِ الراحة أولاً',
+              child: SizedBox(
+                height: 56,
+                child: ElevatedButton.icon(
+                  onPressed: null,
+                  icon: const Icon(Icons.logout_rounded),
+                  label: Text(isHourlySchedule
+                      ? 'إنهاء الدوام الساعي'
+                      : 'تسجيل انصراف'),
+                  style: ElevatedButton.styleFrom(
+                    elevation: 0,
+                    backgroundColor: const Color(0xFFF59E0B),
+                    disabledBackgroundColor: const Color(0xFFCBD5E1),
+                    foregroundColor: Colors.white,
+                    textStyle: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                  ),
+                ),
+              ),
+            )
+                : SizedBox(
               height: 56,
               child: ElevatedButton.icon(
-                onPressed: state.isLoading || !hasCheckedIn || hasCheckedOut
+                onPressed: state.isLoading ||
+                    !hasCheckedIn ||
+                    hasCheckedOut ||
+                    hasActiveBreak
                     ? null
                     : () async {
-                  await ref.read(attendanceProvider.notifier).checkOut();
+                  await ref
+                      .read(attendanceProvider.notifier)
+                      .checkOut();
                 },
                 icon: const Icon(Icons.logout_rounded),
-                label: const Text('تسجيل انصراف'),
+                label: Text(isHourlySchedule
+                    ? 'إنهاء الدوام الساعي'
+                    : 'تسجيل انصراف'),
                 style: ElevatedButton.styleFrom(
                   elevation: 0,
                   backgroundColor: const Color(0xFFF59E0B),
@@ -270,8 +311,260 @@ class _EmployeeAttendancePageState
                 ),
               ),
             ),
+            if (isHourlySchedule && hasCheckedIn && !hasCheckedOut) ...[
+              const SizedBox(height: 14),
+              _BreakActionsBar(
+                activeBreak: activeBreak,
+                hasActiveBreak: hasActiveBreak,
+                totalBreakMinutes: totalBreakMinutes,
+                isLoading: state.isLoading,
+                onStartBreak: () async {
+                  await ref.read(attendanceProvider.notifier).startBreak();
+                },
+                onEndBreak: () async {
+                  await ref.read(attendanceProvider.notifier).endBreak();
+                },
+              ),
+            ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _HourlyScheduleOverviewCard extends StatelessWidget {
+  const _HourlyScheduleOverviewCard({
+    required this.requiredMinutes,
+    required this.workedMinutes,
+    required this.hasCheckedIn,
+    required this.hasCheckedOut,
+  });
+
+  final int requiredMinutes;
+  final int workedMinutes;
+  final bool hasCheckedIn;
+  final bool hasCheckedOut;
+
+  String _formatMinutes(int minutes) {
+    if (minutes <= 0) return '0 س';
+
+    final hours = minutes ~/ 60;
+    final mins = minutes % 60;
+
+    if (hours == 0) return '$mins د';
+    if (mins == 0) return '$hours س';
+
+    return '$hours س و $mins د';
+  }
+
+  String _statusText() {
+    if (!hasCheckedIn) return 'لم يبدأ الدوام بعد';
+    if (workedMinutes >= requiredMinutes) {
+      return hasCheckedOut ? 'اكتملت ساعات اليوم' : 'تم إكمال المطلوب';
+    }
+    return 'ساعات قيد الإنجاز';
+  }
+
+  Color _statusColor() {
+    if (!hasCheckedIn) return const Color(0xFF94A3B8);
+    if (workedMinutes >= requiredMinutes) return const Color(0xFF0F766E);
+    return const Color(0xFFF59E0B);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final remaining = requiredMinutes - workedMinutes;
+    final overtime = workedMinutes - requiredMinutes;
+
+    final progress = requiredMinutes <= 0
+        ? 0.0
+        : (workedMinutes / requiredMinutes).clamp(0.0, 1.0);
+
+    final statusColor = _statusColor();
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 54,
+                height: 54,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFECFDF5),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: const Icon(
+                  Icons.hourglass_bottom_rounded,
+                  color: Color(0xFF0F766E),
+                  size: 30,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'نظام دوام الساعات',
+                      style: TextStyle(
+                        color: Color(0xFF0F172A),
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _statusText(),
+                      style: TextStyle(
+                        color: statusColor,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 12,
+              backgroundColor: const Color(0xFFE2E8F0),
+              valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _HourlyMetricBox(
+                  title: 'المطلوب',
+                  value: _formatMinutes(requiredMinutes),
+                  icon: Icons.flag_rounded,
+                  color: const Color(0xFF0284C7),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _HourlyMetricBox(
+                  title: 'المنجز',
+                  value: _formatMinutes(workedMinutes),
+                  icon: Icons.timer_rounded,
+                  color: const Color(0xFF0F766E),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _HourlyMetricBox(
+            title: overtime > 0 ? 'وقت إضافي' : 'المتبقي',
+            value: overtime > 0
+                ? _formatMinutes(overtime)
+                : _formatMinutes(remaining < 0 ? 0 : remaining),
+            icon: overtime > 0
+                ? Icons.trending_up_rounded
+                : Icons.pending_actions_rounded,
+            color:
+            overtime > 0 ? const Color(0xFF7C3AED) : const Color(0xFFF59E0B),
+            isWide: true,
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(13),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: const Text(
+              'في نظام الساعات يتم احتساب الالتزام حسب إجمالي ساعات العمل من الحضور حتى الانصراف النهائي.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFF64748B),
+                height: 1.5,
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HourlyMetricBox extends StatelessWidget {
+  const _HourlyMetricBox({
+    required this.title,
+    required this.value,
+    required this.icon,
+    required this.color,
+    this.isWide = false,
+  });
+
+  final String title;
+  final String value;
+  final IconData icon;
+  final Color color;
+  final bool isWide;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: isWide ? double.infinity : null,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: Color(0xFF0F172A),
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -339,6 +632,148 @@ class _AttendanceInfoCard extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BreakActionsBar extends StatelessWidget {
+  const _BreakActionsBar({
+    required this.activeBreak,
+    required this.hasActiveBreak,
+    required this.totalBreakMinutes,
+    required this.isLoading,
+    required this.onStartBreak,
+    required this.onEndBreak,
+  });
+
+  final AttendanceBreakModel? activeBreak;
+  final bool hasActiveBreak;
+  final int totalBreakMinutes;
+  final bool isLoading;
+  final VoidCallback onStartBreak;
+  final VoidCallback onEndBreak;
+
+  String _formatBreakMinutes(int minutes) {
+    if (minutes <= 0) return '0 د';
+
+    final hours = minutes ~/ 60;
+    final mins = minutes % 60;
+
+    if (hours == 0) return '$mins د';
+    if (mins == 0) return '$hours س';
+    return '$hours س و $mins د';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 18,
+            offset: const Offset(0, 9),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: hasActiveBreak
+                      ? const Color(0xFFFEF3C7)
+                      : const Color(0xFFECFDF5),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(
+                  hasActiveBreak
+                      ? Icons.pause_rounded
+                      : Icons.free_breakfast_rounded,
+                  color: hasActiveBreak
+                      ? const Color(0xFFD97706)
+                      : const Color(0xFF0F766E),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      hasActiveBreak ? 'في راحة الآن' : 'راحة / استراحة',
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      hasActiveBreak
+                          ? 'وقت الراحة لا يُحتسب ضمن ساعات العمل'
+                          : 'إجمالي الراحة اليوم: ${_formatBreakMinutes(totalBreakMinutes)}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF64748B),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 54,
+            child: ElevatedButton.icon(
+              onPressed:
+              isLoading ? null : (hasActiveBreak ? onEndBreak : onStartBreak),
+              icon: isLoading
+                  ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+                  : Icon(
+                hasActiveBreak
+                    ? Icons.play_arrow_rounded
+                    : Icons.pause_rounded,
+              ),
+              label: Text(
+                hasActiveBreak ? 'إنهاء الراحة' : 'بدء الراحة',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                elevation: 0,
+                backgroundColor: hasActiveBreak
+                    ? const Color(0xFFF59E0B)
+                    : const Color(0xFF0F766E),
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: const Color(0xFF94A3B8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
             ),
           ),
         ],
