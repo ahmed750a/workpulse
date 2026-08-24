@@ -238,10 +238,15 @@ class AttendanceNotifier extends Notifier<AttendanceState> {
       final totalBreakMinutes = await _repository.getTodayBreakMinutes();
 
       if (record?.checkInAt != null && record?.checkOutAt == null) {
-        await WorkTimerService.instance.start(
-          userId: userId,
-          checkInTime: DateTime.parse(record!.checkInAt!).toLocal(),
-        );
+        if (activeBreak != null) {
+          // أثناء إذن خروج/عودة أو استراحة نشطة نوقف عداد الدوام
+          await WorkTimerService.instance.stop(userId: userId);
+        } else {
+          await WorkTimerService.instance.start(
+            userId: userId,
+            checkInTime: DateTime.parse(record!.checkInAt!).toLocal(),
+          );
+        }
       } else if (record?.checkOutAt != null) {
         await WorkTimerService.instance.stop(userId: userId);
       }
@@ -353,6 +358,55 @@ class AttendanceNotifier extends Notifier<AttendanceState> {
 
     try {
       await _repository.endBreak();
+      await _reloadAttendanceSnapshot(isLoading: false);
+    } catch (e) {
+      state = state.copyWith(error: e.toString(), isLoading: false);
+    }
+  }
+
+
+  Future<void> startExitReturnPermission() async {
+    final userId = _currentUserId;
+    if (userId == null) {
+      state = state.copyWith(error: 'المستخدم غير مسجل الدخول');
+      return;
+    }
+
+    state = state.copyWith(isLoading: true, clearError: true);
+
+    try {
+      await _repository.startExitReturnPermission();
+
+      // وقف عداد الدوام الرسمي أثناء استخدام إذن الخروج والعودة
+      await WorkTimerService.instance.stop(userId: userId);
+
+      await _reloadAttendanceSnapshot(isLoading: false);
+    } catch (e) {
+      state = state.copyWith(error: e.toString(), isLoading: false);
+    }
+  }
+
+  Future<void> endExitReturnPermission() async {
+    final userId = _currentUserId;
+    if (userId == null) {
+      state = state.copyWith(error: 'المستخدم غير مسجل الدخول');
+      return;
+    }
+
+    state = state.copyWith(isLoading: true, clearError: true);
+
+    try {
+      await _repository.endExitReturnPermission();
+
+      // بعد العودة نستأنف عداد الدوام إذا اليوم ما زال مفتوح
+      final record = await _repository.getTodayRecord();
+      if (record?.checkInAt != null && record?.checkOutAt == null) {
+        await WorkTimerService.instance.start(
+          userId: userId,
+          checkInTime: DateTime.parse(record!.checkInAt!).toLocal(),
+        );
+      }
+
       await _reloadAttendanceSnapshot(isLoading: false);
     } catch (e) {
       state = state.copyWith(error: e.toString(), isLoading: false);

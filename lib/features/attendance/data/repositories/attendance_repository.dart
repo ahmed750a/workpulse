@@ -91,6 +91,70 @@ class AttendanceRepository {
     return total;
   }
 
+  Future<Map<String, int>> _getTodayExitReturnUsageBreakdown({
+    required String employeeId,
+    required List<AttendanceBreakModel> todayBreaks,
+  }) async {
+    final permission = await _getTodayApprovedExitReturnPermission(
+      employeeId: employeeId,
+    );
+
+    // إذا لا يوجد إذن خروج/عودة معتمد اليوم، كل الدقائق تعتبر غير مغطاة بالإذن
+    if (permission == null) {
+      final total = todayBreaks.fold<int>(0, (sum, b) => sum + b.breakMinutes);
+      return {
+        'approvedMinutes': 0,
+        'unapprovedMinutes': total,
+      };
+    }
+
+    final today = DateTime.now();
+    final permissionStart = _permissionTimeOnDate(
+      time: permission['start_time'].toString(),
+      date: today,
+    );
+    final permissionEnd = _permissionTimeOnDate(
+      time: permission['end_time'].toString(),
+      date: today,
+    );
+
+    int approved = 0;
+    int unapproved = 0;
+
+    for (final b in todayBreaks) {
+      final breakStart = DateTime.parse(b.breakStartAt).toLocal();
+      final breakEnd = b.breakEndAt != null
+          ? DateTime.parse(b.breakEndAt!).toLocal()
+          : DateTime.now();
+
+      if (!breakEnd.isAfter(breakStart)) continue;
+
+      final totalMinutes = breakEnd.difference(breakStart).inMinutes;
+
+      final overlapStart =
+      breakStart.isAfter(permissionStart) ? breakStart : permissionStart;
+      final overlapEnd = breakEnd.isBefore(permissionEnd) ? breakEnd : permissionEnd;
+
+      int approvedMinutes = 0;
+      if (overlapEnd.isAfter(overlapStart)) {
+        approvedMinutes = overlapEnd.difference(overlapStart).inMinutes;
+      }
+
+      if (approvedMinutes < 0) approvedMinutes = 0;
+      if (approvedMinutes > totalMinutes) approvedMinutes = totalMinutes;
+
+      final unapprovedMinutes = totalMinutes - approvedMinutes;
+
+      approved += approvedMinutes;
+      unapproved += unapprovedMinutes;
+    }
+
+    return {
+      'approvedMinutes': approved,
+      'unapprovedMinutes': unapproved,
+    };
+  }
+
   Future<AttendanceBreakModel> startBreak() async {
     final employeeId = _authUserId();
     final schedule =
@@ -184,6 +248,23 @@ class AttendanceRepository {
     return rows.first;
   }
 
+  Future<bool> _hasApprovedLeaveForDate({
+    required String employeeId,
+    required String date,
+  }) async {
+    final row = await _client
+        .from('leaves')
+        .select('id')
+        .eq('employee_id', employeeId)
+        .eq('status', 'approved')
+        .lte('start_date', date)
+        .gte('end_date', date)
+        .limit(1)
+        .maybeSingle();
+
+    return row != null;
+  }
+
   Future<AttendanceRecordModel?> getTodayRecord() async {
     final employeeId = _authUserId();
 
@@ -225,6 +306,15 @@ class AttendanceRepository {
 
     final now = DateTime.now();
     final today = _dateOnly(now);
+
+    final hasApprovedLeave = await _hasApprovedLeaveForDate(
+      employeeId: employeeId,
+      date: today,
+    );
+
+    if (hasApprovedLeave) {
+      throw Exception('لديك إجازة معتمدة اليوم، لا يمكن تسجيل الحضور.');
+    }
 
     if (!schedule.workDays.contains(now.weekday)) {
       throw Exception('اليوم ليس ضمن أيام الدوام الرسمية');
@@ -433,11 +523,24 @@ class AttendanceRepository {
       );
     }
 
-    final totalBreakMinutes = await getTodayBreakMinutes();
+    final todayBreaks = await getTodayBreaks();
+    final totalBreakMinutes = todayBreaks.fold<int>(
+      0,
+          (sum, b) => sum + b.breakMinutes,
+    );
+
+    final exitReturnBreakdown = await _getTodayExitReturnUsageBreakdown(
+      employeeId: employeeId,
+      todayBreaks: todayBreaks,
+    );
+
+    final approvedExitReturnMinutes =
+        exitReturnBreakdown['approvedMinutes'] ?? 0;
+    final unapprovedExitReturnMinutes =
+        exitReturnBreakdown['unapprovedMinutes'] ?? 0;
 
     int workedMinutes =
         checkOutTime.difference(checkInAt).inMinutes - totalBreakMinutes;
-
     if (workedMinutes < 0) workedMinutes = 0;
     int earlyLeaveMinutes = 0;
     int approvedEarlyLeave = 0;
@@ -510,6 +613,15 @@ class AttendanceRepository {
       }
     }
 
+    String? notes = existing.notes;
+    if (unapprovedExitReturnMinutes > 0) {
+      final overrunNote =
+          'تجاوز إذن خروج/عودة: $unapprovedExitReturnMinutes دقيقة (المعتمد: $approvedExitReturnMinutes دقيقة)';
+      notes = (notes == null || notes.trim().isEmpty)
+          ? overrunNote
+          : '$notes | $overrunNote';
+    }
+
     final rows = await _client
         .from('attendance_records')
         .update({
@@ -519,6 +631,7 @@ class AttendanceRepository {
       'approved_early_leave_minutes': approvedEarlyLeave,
       'unapproved_early_leave_minutes': unapprovedEarlyLeave,
       'status': status,
+      'notes': notes,
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     })
         .eq('id', existing.id)
@@ -572,4 +685,131 @@ class AttendanceRepository {
     )
         .toList();
   }
+
+  DateTime _permissionTimeOnDate({
+    required String time,
+    required DateTime date,
+  }) {
+    final parts = time.split(':');
+    return DateTime(
+      date.year,
+      date.month,
+      date.day,
+      int.parse(parts[0]),
+      int.parse(parts[1]),
+      parts.length > 2 ? int.parse(parts[2]) : 0,
+    );
+  }
+
+  Future<Map<String, dynamic>?> _getTodayApprovedExitReturnPermission({
+    required String employeeId,
+  }) async {
+    final today = _dateOnly(DateTime.now());
+
+    final rows = await _client
+        .from('permissions')
+        .select()
+        .eq('employee_id', employeeId)
+        .eq('permission_date', today)
+        .eq('type', 'exit_return')
+        .eq('status', 'approved')
+        .order('created_at', ascending: false)
+        .limit(1);
+
+    if (rows.isEmpty) return null;
+    return Map<String, dynamic>.from(rows.first);
+  }
+
+  Future<AttendanceBreakModel> startExitReturnPermission() async {
+    final employeeId = _authUserId();
+    final schedule = await _scheduleRepository.getScheduleForEmployee(employeeId);
+
+    if (schedule.scheduleType != 'fixed') {
+      throw Exception('إذن الخروج والعودة متاح حاليا للدوام الثابت فقط.');
+    }
+
+    final record = await getTodayRecord();
+    if (record == null || record.checkInAt == null) {
+      throw Exception('يجب تسجيل الحضور أولا قبل استخدام الإذن.');
+    }
+
+    if (record.checkOutAt != null) {
+      throw Exception('تم إنهاء الدوام بالفعل.');
+    }
+
+    final activeBreak = await getActiveBreak();
+    if (activeBreak != null) {
+      throw Exception('يوجد إذن/استراحة نشطة بالفعل. أنهها أولا.');
+    }
+
+    final permission = await _getTodayApprovedExitReturnPermission(
+      employeeId: employeeId,
+    );
+
+    if (permission == null) {
+      throw Exception('لا يوجد إذن خروج وعودة معتمد لهذا اليوم.');
+    }
+
+    final now = DateTime.now();
+    final permissionStart = _permissionTimeOnDate(
+      time: permission['start_time'].toString(),
+      date: now,
+    );
+    final permissionEnd = _permissionTimeOnDate(
+      time: permission['end_time'].toString(),
+      date: now,
+    );
+
+    if (now.isBefore(permissionStart) || now.isAfter(permissionEnd)) {
+      throw Exception('يمكن بدء الإذن فقط خلال الفترة الزمنية المعتمدة.');
+    }
+
+    final rows = await _client.from('attendance_breaks').insert({
+      'attendance_record_id': record.id,
+      'employee_id': employeeId,
+      'break_start_at': now.toUtc().toIso8601String(),
+      'status': 'active',
+      'break_minutes': 0,
+      'updated_at': now.toUtc().toIso8601String(),
+    }).select();
+
+    if (rows.isEmpty) {
+      throw Exception('فشل بدء استخدام إذن الخروج والعودة.');
+    }
+
+    return AttendanceBreakModel.fromJson(rows.first);
+  }
+
+  Future<AttendanceBreakModel> endExitReturnPermission() async {
+    final activeBreak = await getActiveBreak();
+
+    if (activeBreak == null) {
+      throw Exception('لا يوجد إذن خروج وعودة نشط حاليا.');
+    }
+
+    final now = DateTime.now();
+    final start = DateTime.parse(activeBreak.breakStartAt).toLocal();
+
+    int minutes = now.difference(start).inMinutes;
+    if (minutes < 0) minutes = 0;
+
+    final rows = await _client
+        .from('attendance_breaks')
+        .update({
+      'break_end_at': now.toUtc().toIso8601String(),
+      'break_minutes': minutes,
+      'status': 'ended',
+      'updated_at': now.toUtc().toIso8601String(),
+    })
+        .eq('id', activeBreak.id)
+        .select();
+
+    if (rows.isEmpty) {
+      throw Exception('فشل إنهاء إذن الخروج والعودة.');
+    }
+
+    return AttendanceBreakModel.fromJson(rows.first);
+  }
+
 }
+

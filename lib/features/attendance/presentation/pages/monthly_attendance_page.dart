@@ -565,6 +565,39 @@ class _AttendanceRecordCard extends StatelessWidget {
                     ],
                   ],
                 ),
+                if ((record.notes ?? '').toString().trim().isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFFBEB),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFFDE68A)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.info_outline_rounded,
+                          size: 14,
+                          color: Color(0xFF92400E),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            (record.notes ?? '').toString(),
+                            style: const TextStyle(
+                              color: Color(0xFF92400E),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

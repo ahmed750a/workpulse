@@ -254,7 +254,9 @@ class _EmployeeAttendancePageState extends ConsumerState<EmployeeAttendancePage>
             const SizedBox(height: 14),
             hasActiveBreak
                 ? Tooltip(
-              message: 'أنهِ الراحة أولاً',
+              message: isHourlySchedule
+                  ? 'أنهِ الراحة أولاً'
+                  : 'أنهِ إذن الخروج والعودة أولاً من صفحة الأذونات',
               child: SizedBox(
                 height: 56,
                 child: ElevatedButton.icon(
@@ -311,6 +313,27 @@ class _EmployeeAttendancePageState extends ConsumerState<EmployeeAttendancePage>
                 ),
               ),
             ),
+
+            if (!isHourlySchedule && hasActiveBreak && hasCheckedIn && !hasCheckedOut) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFFBEB),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFFDE68A)),
+                ),
+                child: const Text(
+                  'لديك إذن خروج وعودة نشط الآن. لإنهائه والعودة للدوام، افتح صفحة "طلبات الأذونات" واضغط "إنهاء الإذن والعودة للدوام".',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFF92400E),
+                    fontWeight: FontWeight.w700,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            ],
             if (isHourlySchedule && hasCheckedIn && !hasCheckedOut) ...[
               const SizedBox(height: 14),
               _BreakActionsBar(

@@ -120,16 +120,46 @@ class _PermissionsPageState extends ConsumerState<PermissionsPage>
             isLoading: state.isLoading,
             error: state.error,
             permissions: state.permissions,
+            onRefresh: () async {
+              await ref.read(permissionsProvider.notifier).loadMyPermissions();
+              await ref.read(attendanceProvider.notifier).loadTodayRecord();
+            },
             onCancel: (id) async {
               final confirm = await _showCancelDialog(context);
               if (confirm != true) return;
-              await ref
-                  .read(permissionsProvider.notifier)
-                  .cancelPermission(id);
+              await ref.read(permissionsProvider.notifier).cancelPermission(id);
             },
             typeText: _typeText,
             statusColor: _statusColor,
             statusText: _statusText,
+            hasCheckedIn: todayRecord?.checkInAt != null,
+            hasCheckedOut: todayRecord?.checkOutAt != null,
+            isExitReturnUsageActive:
+            attendanceState.activeBreak != null &&
+                currentSchedule?.scheduleType == 'fixed',
+            isActionLoading: attendanceState.isLoading,
+            onStartExitReturn: () async {
+              await ref.read(attendanceProvider.notifier).startExitReturnPermission();
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('تم بدء استخدام إذن الخروج والعودة'),
+                  backgroundColor: Color(0xFF0F766E),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+            onEndExitReturn: () async {
+              await ref.read(attendanceProvider.notifier).endExitReturnPermission();
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('تم إنهاء الإذن والعودة للدوام'),
+                  backgroundColor: Color(0xFF0F766E),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
           ),
 
           // ✅ تاب طلب جديد
@@ -211,20 +241,86 @@ class _MyPermissionsTab extends StatelessWidget {
     required this.isLoading,
     required this.error,
     required this.permissions,
+    required this.onRefresh,
     required this.onCancel,
     required this.typeText,
     required this.statusColor,
     required this.statusText,
+    required this.hasCheckedIn,
+    required this.hasCheckedOut,
+    required this.isExitReturnUsageActive,
+    required this.isActionLoading,
+    required this.onStartExitReturn,
+    required this.onEndExitReturn,
   });
 
   final bool isLoading;
   final String? error;
   final List<PermissionModel> permissions;
+  final Future<void> Function() onRefresh;
   final Function(String) onCancel;
   final String Function(String) typeText;
   final Color Function(String) statusColor;
   final String Function(String) statusText;
+  final bool hasCheckedIn;
+  final bool hasCheckedOut;
+  final bool isExitReturnUsageActive;
+  final bool isActionLoading;
+  final Future<void> Function() onStartExitReturn;
+  final Future<void> Function() onEndExitReturn;
 
+
+  String _todayDate() {
+    final now = DateTime.now();
+    return '${now.year.toString().padLeft(4, '0')}-'
+        '${now.month.toString().padLeft(2, '0')}-'
+        '${now.day.toString().padLeft(2, '0')}';
+  }
+
+  DateTime? _toDateTime(String date, String time) {
+    try {
+      final d = DateTime.parse(date);
+      final parts = time.split(':');
+      return DateTime(
+        d.year,
+        d.month,
+        d.day,
+        int.parse(parts[0]),
+        int.parse(parts[1]),
+        parts.length > 2 ? int.parse(parts[2]) : 0,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool _isExitReturnApprovedToday(PermissionModel p) {
+    return p.type == 'exit_return' &&
+        p.status == 'approved' &&
+        p.permissionDate == _todayDate();
+  }
+
+  bool _isNowWithinWindow(PermissionModel p) {
+    final now = DateTime.now();
+    final start = _toDateTime(p.permissionDate, p.startTime);
+    final end = _toDateTime(p.permissionDate, p.endTime);
+    if (start == null || end == null) return false;
+    return !now.isBefore(start) && !now.isAfter(end);
+  }
+
+  String _windowHint(PermissionModel p) {
+    final now = DateTime.now();
+    final start = _toDateTime(p.permissionDate, p.startTime);
+    final end = _toDateTime(p.permissionDate, p.endTime);
+    if (start == null || end == null) return 'تعذر قراءة فترة الإذن.';
+    if (now.isBefore(start)) {
+      return 'لم يبدأ موعد الإذن بعد. يبدأ عند ${formatTime12(p.startTime)}';
+    }
+    if (now.isAfter(end)) {
+      return 'انتهت نافذة الإذن لهذا اليوم.';
+    }
+    return '';
+  }
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
@@ -265,7 +361,7 @@ class _MyPermissionsTab extends StatelessWidget {
     }
 
     return RefreshIndicator(
-      onRefresh: () async {},
+      onRefresh: onRefresh,
       child: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: permissions.length,
@@ -402,6 +498,7 @@ class _MyPermissionsTab extends StatelessWidget {
                   ),
                 ],
                 // سبب الرفض
+                // سبب الرفض
                 if (permission.status == 'rejected' &&
                     permission.rejectionReason != null) ...[
                   const SizedBox(height: 8),
@@ -432,6 +529,63 @@ class _MyPermissionsTab extends StatelessWidget {
                       ],
                     ),
                   ),
+                ],
+
+                // تشغيل إذن خروج/عودة المعتمد لليوم
+                if (_isExitReturnApprovedToday(permission)) ...[
+                  const SizedBox(height: 12),
+                  if (hasCheckedOut)
+                    const Text(
+                      'تم إنهاء الدوام اليوم، لا يمكن تشغيل الإذن.',
+                      style: TextStyle(
+                        color: Color(0xFF64748B),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    )
+                  else if (!hasCheckedIn)
+                    const Text(
+                      'يجب تسجيل الحضور أولا قبل استخدام إذن الخروج والعودة.',
+                      style: TextStyle(
+                        color: Color(0xFF64748B),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    )
+                  else if (isExitReturnUsageActive)
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: isActionLoading ? null : () => onEndExitReturn(),
+                          icon: const Icon(Icons.play_arrow_rounded),
+                          label: const Text('إنهاء الإذن والعودة للدوام'),
+                          style: ElevatedButton.styleFrom(
+                            elevation: 0,
+                            backgroundColor: const Color(0xFFF59E0B),
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      )
+                    else if (_isNowWithinWindow(permission))
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: isActionLoading ? null : () => onStartExitReturn(),
+                            icon: const Icon(Icons.pause_rounded),
+                            label: const Text('بدء استخدام إذن الخروج والعودة'),
+                            style: ElevatedButton.styleFrom(
+                              elevation: 0,
+                              backgroundColor: const Color(0xFF0F766E),
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        )
+                      else
+                        Text(
+                          _windowHint(permission),
+                          style: const TextStyle(
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                 ],
               ],
             ),
