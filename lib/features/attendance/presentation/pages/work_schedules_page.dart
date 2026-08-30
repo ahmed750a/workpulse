@@ -148,6 +148,10 @@ class _WorkSchedulesPageState extends ConsumerState<WorkSchedulesPage> {
             required String scheduleType,
             required int requiredMinutes,
             required bool allowCheckInAfterEndTime,
+            required bool geofenceEnabled,
+            double? geofenceLat,
+            double? geofenceLng,
+            required int geofenceRadiusM,
           }) async {
             final notifier = ref.read(workSchedulesProvider.notifier);
 
@@ -162,6 +166,10 @@ class _WorkSchedulesPageState extends ConsumerState<WorkSchedulesPage> {
               scheduleType: scheduleType,
               requiredMinutes: requiredMinutes,
               allowCheckInAfterEndTime: allowCheckInAfterEndTime,
+              geofenceEnabled: geofenceEnabled,
+              geofenceLat: geofenceLat,
+              geofenceLng: geofenceLng,
+              geofenceRadiusM: geofenceRadiusM,
             )
                 : await notifier.updateSchedule(
               id: schedule.id,
@@ -174,6 +182,10 @@ class _WorkSchedulesPageState extends ConsumerState<WorkSchedulesPage> {
               scheduleType: scheduleType,
               requiredMinutes: requiredMinutes,
               allowCheckInAfterEndTime: allowCheckInAfterEndTime,
+              geofenceEnabled: geofenceEnabled,
+              geofenceLat: geofenceLat,
+              geofenceLng: geofenceLng,
+              geofenceRadiusM: geofenceRadiusM,
             );
 
             if (!context.mounted) return;
@@ -493,6 +505,31 @@ class _WorkScheduleCard extends StatelessWidget {
                   value: 'يتم احتساب الالتزام حسب إجمالي ساعات العمل فقط',
                 ),
               ],
+
+              const SizedBox(height: 10),
+              _InfoRow(
+                icon: Icons.my_location_rounded,
+                label: 'نطاق الموقع',
+                value: schedule.geofenceEnabled ? 'مفعل' : 'غير مفعل',
+              ),
+
+              if (schedule.geofenceEnabled &&
+                  schedule.geofenceLat != null &&
+                  schedule.geofenceLng != null) ...[
+                const SizedBox(height: 10),
+                _InfoRow(
+                  icon: Icons.place_outlined,
+                  label: 'الإحداثيات',
+                  value:
+                  '${schedule.geofenceLat!.toStringAsFixed(6)}, ${schedule.geofenceLng!.toStringAsFixed(6)}',
+                ),
+                const SizedBox(height: 10),
+                _InfoRow(
+                  icon: Icons.radio_button_checked_rounded,
+                  label: 'نصف القطر',
+                  value: '${schedule.geofenceRadiusM} متر',
+                ),
+              ],
             ],
           ),
         ),
@@ -561,6 +598,10 @@ class _ScheduleFormSheet extends StatefulWidget {
   required String scheduleType,
   required int requiredMinutes,
   required bool allowCheckInAfterEndTime,
+  required bool geofenceEnabled,
+  double? geofenceLat,
+  double? geofenceLng,
+  required int geofenceRadiusM,
   }) onSubmit;
 
   @override
@@ -571,14 +612,16 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
   late final TextEditingController _nameController;
   late final TextEditingController _graceController;
   late final TextEditingController _requiredMinutesController;
-
+  late final TextEditingController _geofenceLatController;
+  late final TextEditingController _geofenceLngController;
+  late final TextEditingController _geofenceRadiusController;
   late String _scheduleType;
   late TimeOfDay _startTime;
   late TimeOfDay _endTime;
   late bool _isDefault;
   late bool _allowCheckInAfterEndTime;
+  late bool _geofenceEnabled;
   late List<int> _workDays;
-
   bool _isSaving = false;
 
   @override
@@ -586,7 +629,15 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
     super.initState();
 
     final schedule = widget.schedule;
-
+    _geofenceLatController = TextEditingController(
+      text: schedule?.geofenceLat?.toString() ?? '',
+    );
+    _geofenceLngController = TextEditingController(
+      text: schedule?.geofenceLng?.toString() ?? '',
+    );
+    _geofenceRadiusController = TextEditingController(
+      text: (schedule?.geofenceRadiusM ?? 100).toString(),
+    );
     _nameController = TextEditingController(text: schedule?.name ?? '');
     _graceController = TextEditingController(
       text: (schedule?.graceMinutes ?? 15).toString(),
@@ -601,6 +652,7 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
     _isDefault = schedule?.isDefault ?? false;
     _allowCheckInAfterEndTime =
         schedule?.allowCheckInAfterEndTime ?? true;
+    _geofenceEnabled = schedule?.geofenceEnabled ?? false;
     _workDays = List<int>.from(schedule?.workDays ?? [1, 2, 3, 4, 5]);
   }
 
@@ -609,6 +661,9 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
     _nameController.dispose();
     _graceController.dispose();
     _requiredMinutesController.dispose();
+    _geofenceLatController.dispose();
+    _geofenceLngController.dispose();
+    _geofenceRadiusController.dispose();
     super.dispose();
   }
 
@@ -631,7 +686,16 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
     final grace = int.tryParse(_graceController.text.trim()) ?? 0;
     final requiredMinutes =
         int.tryParse(_requiredMinutesController.text.trim()) ?? 0;
+    final geofenceRadius =
+        int.tryParse(_geofenceRadiusController.text.trim()) ?? 100;
 
+    final geofenceLat = _geofenceLatController.text.trim().isEmpty
+        ? null
+        : double.tryParse(_geofenceLatController.text.trim());
+
+    final geofenceLng = _geofenceLngController.text.trim().isEmpty
+        ? null
+        : double.tryParse(_geofenceLngController.text.trim());
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('اسم جدول الدوام مطلوب')),
@@ -646,6 +710,27 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
       return;
     }
 
+    if (_geofenceEnabled) {
+      if (geofenceLat == null || geofenceLng == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('يرجى إدخال خط العرض وخط الطول بشكل صحيح'),
+          ),
+        );
+        return;
+      }
+
+      if (geofenceRadius <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('نصف القطر يجب أن يكون أكبر من صفر'),
+          ),
+        );
+        return;
+      }
+    }
+
+
     setState(() => _isSaving = true);
 
     await widget.onSubmit(
@@ -659,12 +744,17 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
       requiredMinutes: requiredMinutes,
       allowCheckInAfterEndTime:
       _scheduleType == 'fixed' ? _allowCheckInAfterEndTime : true,
+      geofenceEnabled: _geofenceEnabled,
+      geofenceLat: _geofenceEnabled ? geofenceLat : null,
+      geofenceLng: _geofenceEnabled ? geofenceLng : null,
+      geofenceRadiusM: geofenceRadius,
     );
 
     if (mounted) {
       setState(() => _isSaving = false);
     }
   }
+
 
   String _dayText(int day) {
     const days = {
@@ -895,6 +985,43 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
                   ),
                   activeColor: const Color(0xFF0F766E),
                 ),
+
+              const SizedBox(height: 14),
+
+              SwitchListTile(
+                value: _geofenceEnabled,
+                onChanged: (value) => setState(() => _geofenceEnabled = value),
+                title: const Text(
+                  'تفعيل نطاق الموقع أثناء الدوام',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                subtitle: const Text('عند الخروج من النطاق يتم تنبيه الموظف.'),
+                activeColor: const Color(0xFF0F766E),
+              ),
+
+              if (_geofenceEnabled) ...[
+                _SheetTextField(
+                  controller: _geofenceLatController,
+                  label: 'خط العرض',
+                  icon: Icons.my_location_rounded,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                ),
+                const SizedBox(height: 10),
+                _SheetTextField(
+                  controller: _geofenceLngController,
+                  label: 'خط الطول',
+                  icon: Icons.place_outlined,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                ),
+                const SizedBox(height: 10),
+                _SheetTextField(
+                  controller: _geofenceRadiusController,
+                  label: 'نصف القطر بالمتر (مثال: 100)',
+                  icon: Icons.radio_button_checked_rounded,
+                  keyboardType: TextInputType.number,
+                ),
+              ],
+
 
               const SizedBox(height: 18),
 

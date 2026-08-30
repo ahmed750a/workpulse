@@ -32,6 +32,14 @@ mixin _$WorkScheduleModel {
   int get requiredMinutes;
   @JsonKey(name: 'allow_check_in_after_end_time')
   bool get allowCheckInAfterEndTime;
+  @JsonKey(name: 'geofence_enabled')
+  bool get geofenceEnabled;
+  @JsonKey(name: 'geofence_lat')
+  double? get geofenceLat;
+  @JsonKey(name: 'geofence_lng')
+  double? get geofenceLng;
+  @JsonKey(name: 'geofence_radius_m')
+  int get geofenceRadiusM;
   @JsonKey(name: 'created_at')
   String? get createdAt;
 
@@ -68,6 +76,14 @@ mixin _$WorkScheduleModel {
             (identical(
                     other.allowCheckInAfterEndTime, allowCheckInAfterEndTime) ||
                 other.allowCheckInAfterEndTime == allowCheckInAfterEndTime) &&
+            (identical(other.geofenceEnabled, geofenceEnabled) ||
+                other.geofenceEnabled == geofenceEnabled) &&
+            (identical(other.geofenceLat, geofenceLat) ||
+                other.geofenceLat == geofenceLat) &&
+            (identical(other.geofenceLng, geofenceLng) ||
+                other.geofenceLng == geofenceLng) &&
+            (identical(other.geofenceRadiusM, geofenceRadiusM) ||
+                other.geofenceRadiusM == geofenceRadiusM) &&
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt));
   }
@@ -86,11 +102,15 @@ mixin _$WorkScheduleModel {
       scheduleType,
       requiredMinutes,
       allowCheckInAfterEndTime,
+      geofenceEnabled,
+      geofenceLat,
+      geofenceLng,
+      geofenceRadiusM,
       createdAt);
 
   @override
   String toString() {
-    return 'WorkScheduleModel(id: $id, name: $name, startTime: $startTime, endTime: $endTime, graceMinutes: $graceMinutes, workDays: $workDays, isDefault: $isDefault, scheduleType: $scheduleType, requiredMinutes: $requiredMinutes, allowCheckInAfterEndTime: $allowCheckInAfterEndTime, createdAt: $createdAt)';
+    return 'WorkScheduleModel(id: $id, name: $name, startTime: $startTime, endTime: $endTime, graceMinutes: $graceMinutes, workDays: $workDays, isDefault: $isDefault, scheduleType: $scheduleType, requiredMinutes: $requiredMinutes, allowCheckInAfterEndTime: $allowCheckInAfterEndTime, geofenceEnabled: $geofenceEnabled, geofenceLat: $geofenceLat, geofenceLng: $geofenceLng, geofenceRadiusM: $geofenceRadiusM, createdAt: $createdAt)';
   }
 }
 
@@ -112,6 +132,10 @@ abstract mixin class $WorkScheduleModelCopyWith<$Res> {
       @JsonKey(name: 'required_minutes') int requiredMinutes,
       @JsonKey(name: 'allow_check_in_after_end_time')
       bool allowCheckInAfterEndTime,
+      @JsonKey(name: 'geofence_enabled') bool geofenceEnabled,
+      @JsonKey(name: 'geofence_lat') double? geofenceLat,
+      @JsonKey(name: 'geofence_lng') double? geofenceLng,
+      @JsonKey(name: 'geofence_radius_m') int geofenceRadiusM,
       @JsonKey(name: 'created_at') String? createdAt});
 }
 
@@ -138,6 +162,10 @@ class _$WorkScheduleModelCopyWithImpl<$Res>
     Object? scheduleType = null,
     Object? requiredMinutes = null,
     Object? allowCheckInAfterEndTime = null,
+    Object? geofenceEnabled = null,
+    Object? geofenceLat = freezed,
+    Object? geofenceLng = freezed,
+    Object? geofenceRadiusM = null,
     Object? createdAt = freezed,
   }) {
     return _then(_self.copyWith(
@@ -181,6 +209,22 @@ class _$WorkScheduleModelCopyWithImpl<$Res>
           ? _self.allowCheckInAfterEndTime
           : allowCheckInAfterEndTime // ignore: cast_nullable_to_non_nullable
               as bool,
+      geofenceEnabled: null == geofenceEnabled
+          ? _self.geofenceEnabled
+          : geofenceEnabled // ignore: cast_nullable_to_non_nullable
+              as bool,
+      geofenceLat: freezed == geofenceLat
+          ? _self.geofenceLat
+          : geofenceLat // ignore: cast_nullable_to_non_nullable
+              as double?,
+      geofenceLng: freezed == geofenceLng
+          ? _self.geofenceLng
+          : geofenceLng // ignore: cast_nullable_to_non_nullable
+              as double?,
+      geofenceRadiusM: null == geofenceRadiusM
+          ? _self.geofenceRadiusM
+          : geofenceRadiusM // ignore: cast_nullable_to_non_nullable
+              as int,
       createdAt: freezed == createdAt
           ? _self.createdAt
           : createdAt // ignore: cast_nullable_to_non_nullable
@@ -294,6 +338,10 @@ extension WorkScheduleModelPatterns on WorkScheduleModel {
             @JsonKey(name: 'required_minutes') int requiredMinutes,
             @JsonKey(name: 'allow_check_in_after_end_time')
             bool allowCheckInAfterEndTime,
+            @JsonKey(name: 'geofence_enabled') bool geofenceEnabled,
+            @JsonKey(name: 'geofence_lat') double? geofenceLat,
+            @JsonKey(name: 'geofence_lng') double? geofenceLng,
+            @JsonKey(name: 'geofence_radius_m') int geofenceRadiusM,
             @JsonKey(name: 'created_at') String? createdAt)?
         $default, {
     required TResult orElse(),
@@ -312,6 +360,10 @@ extension WorkScheduleModelPatterns on WorkScheduleModel {
             _that.scheduleType,
             _that.requiredMinutes,
             _that.allowCheckInAfterEndTime,
+            _that.geofenceEnabled,
+            _that.geofenceLat,
+            _that.geofenceLng,
+            _that.geofenceRadiusM,
             _that.createdAt);
       case _:
         return orElse();
@@ -345,6 +397,10 @@ extension WorkScheduleModelPatterns on WorkScheduleModel {
             @JsonKey(name: 'required_minutes') int requiredMinutes,
             @JsonKey(name: 'allow_check_in_after_end_time')
             bool allowCheckInAfterEndTime,
+            @JsonKey(name: 'geofence_enabled') bool geofenceEnabled,
+            @JsonKey(name: 'geofence_lat') double? geofenceLat,
+            @JsonKey(name: 'geofence_lng') double? geofenceLng,
+            @JsonKey(name: 'geofence_radius_m') int geofenceRadiusM,
             @JsonKey(name: 'created_at') String? createdAt)
         $default,
   ) {
@@ -362,6 +418,10 @@ extension WorkScheduleModelPatterns on WorkScheduleModel {
             _that.scheduleType,
             _that.requiredMinutes,
             _that.allowCheckInAfterEndTime,
+            _that.geofenceEnabled,
+            _that.geofenceLat,
+            _that.geofenceLng,
+            _that.geofenceRadiusM,
             _that.createdAt);
       case _:
         throw StateError('Unexpected subclass');
@@ -394,6 +454,10 @@ extension WorkScheduleModelPatterns on WorkScheduleModel {
             @JsonKey(name: 'required_minutes') int requiredMinutes,
             @JsonKey(name: 'allow_check_in_after_end_time')
             bool allowCheckInAfterEndTime,
+            @JsonKey(name: 'geofence_enabled') bool geofenceEnabled,
+            @JsonKey(name: 'geofence_lat') double? geofenceLat,
+            @JsonKey(name: 'geofence_lng') double? geofenceLng,
+            @JsonKey(name: 'geofence_radius_m') int geofenceRadiusM,
             @JsonKey(name: 'created_at') String? createdAt)?
         $default,
   ) {
@@ -411,6 +475,10 @@ extension WorkScheduleModelPatterns on WorkScheduleModel {
             _that.scheduleType,
             _that.requiredMinutes,
             _that.allowCheckInAfterEndTime,
+            _that.geofenceEnabled,
+            _that.geofenceLat,
+            _that.geofenceLng,
+            _that.geofenceRadiusM,
             _that.createdAt);
       case _:
         return null;
@@ -433,6 +501,10 @@ class _WorkScheduleModel implements WorkScheduleModel {
       @JsonKey(name: 'required_minutes') required this.requiredMinutes,
       @JsonKey(name: 'allow_check_in_after_end_time')
       this.allowCheckInAfterEndTime = true,
+      @JsonKey(name: 'geofence_enabled') this.geofenceEnabled = false,
+      @JsonKey(name: 'geofence_lat') this.geofenceLat,
+      @JsonKey(name: 'geofence_lng') this.geofenceLng,
+      @JsonKey(name: 'geofence_radius_m') this.geofenceRadiusM = 100,
       @JsonKey(name: 'created_at') this.createdAt})
       : _workDays = workDays;
   factory _WorkScheduleModel.fromJson(Map<String, dynamic> json) =>
@@ -472,6 +544,18 @@ class _WorkScheduleModel implements WorkScheduleModel {
   @override
   @JsonKey(name: 'allow_check_in_after_end_time')
   final bool allowCheckInAfterEndTime;
+  @override
+  @JsonKey(name: 'geofence_enabled')
+  final bool geofenceEnabled;
+  @override
+  @JsonKey(name: 'geofence_lat')
+  final double? geofenceLat;
+  @override
+  @JsonKey(name: 'geofence_lng')
+  final double? geofenceLng;
+  @override
+  @JsonKey(name: 'geofence_radius_m')
+  final int geofenceRadiusM;
   @override
   @JsonKey(name: 'created_at')
   final String? createdAt;
@@ -513,6 +597,14 @@ class _WorkScheduleModel implements WorkScheduleModel {
             (identical(
                     other.allowCheckInAfterEndTime, allowCheckInAfterEndTime) ||
                 other.allowCheckInAfterEndTime == allowCheckInAfterEndTime) &&
+            (identical(other.geofenceEnabled, geofenceEnabled) ||
+                other.geofenceEnabled == geofenceEnabled) &&
+            (identical(other.geofenceLat, geofenceLat) ||
+                other.geofenceLat == geofenceLat) &&
+            (identical(other.geofenceLng, geofenceLng) ||
+                other.geofenceLng == geofenceLng) &&
+            (identical(other.geofenceRadiusM, geofenceRadiusM) ||
+                other.geofenceRadiusM == geofenceRadiusM) &&
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt));
   }
@@ -531,11 +623,15 @@ class _WorkScheduleModel implements WorkScheduleModel {
       scheduleType,
       requiredMinutes,
       allowCheckInAfterEndTime,
+      geofenceEnabled,
+      geofenceLat,
+      geofenceLng,
+      geofenceRadiusM,
       createdAt);
 
   @override
   String toString() {
-    return 'WorkScheduleModel(id: $id, name: $name, startTime: $startTime, endTime: $endTime, graceMinutes: $graceMinutes, workDays: $workDays, isDefault: $isDefault, scheduleType: $scheduleType, requiredMinutes: $requiredMinutes, allowCheckInAfterEndTime: $allowCheckInAfterEndTime, createdAt: $createdAt)';
+    return 'WorkScheduleModel(id: $id, name: $name, startTime: $startTime, endTime: $endTime, graceMinutes: $graceMinutes, workDays: $workDays, isDefault: $isDefault, scheduleType: $scheduleType, requiredMinutes: $requiredMinutes, allowCheckInAfterEndTime: $allowCheckInAfterEndTime, geofenceEnabled: $geofenceEnabled, geofenceLat: $geofenceLat, geofenceLng: $geofenceLng, geofenceRadiusM: $geofenceRadiusM, createdAt: $createdAt)';
   }
 }
 
@@ -559,6 +655,10 @@ abstract mixin class _$WorkScheduleModelCopyWith<$Res>
       @JsonKey(name: 'required_minutes') int requiredMinutes,
       @JsonKey(name: 'allow_check_in_after_end_time')
       bool allowCheckInAfterEndTime,
+      @JsonKey(name: 'geofence_enabled') bool geofenceEnabled,
+      @JsonKey(name: 'geofence_lat') double? geofenceLat,
+      @JsonKey(name: 'geofence_lng') double? geofenceLng,
+      @JsonKey(name: 'geofence_radius_m') int geofenceRadiusM,
       @JsonKey(name: 'created_at') String? createdAt});
 }
 
@@ -585,6 +685,10 @@ class __$WorkScheduleModelCopyWithImpl<$Res>
     Object? scheduleType = null,
     Object? requiredMinutes = null,
     Object? allowCheckInAfterEndTime = null,
+    Object? geofenceEnabled = null,
+    Object? geofenceLat = freezed,
+    Object? geofenceLng = freezed,
+    Object? geofenceRadiusM = null,
     Object? createdAt = freezed,
   }) {
     return _then(_WorkScheduleModel(
@@ -628,6 +732,22 @@ class __$WorkScheduleModelCopyWithImpl<$Res>
           ? _self.allowCheckInAfterEndTime
           : allowCheckInAfterEndTime // ignore: cast_nullable_to_non_nullable
               as bool,
+      geofenceEnabled: null == geofenceEnabled
+          ? _self.geofenceEnabled
+          : geofenceEnabled // ignore: cast_nullable_to_non_nullable
+              as bool,
+      geofenceLat: freezed == geofenceLat
+          ? _self.geofenceLat
+          : geofenceLat // ignore: cast_nullable_to_non_nullable
+              as double?,
+      geofenceLng: freezed == geofenceLng
+          ? _self.geofenceLng
+          : geofenceLng // ignore: cast_nullable_to_non_nullable
+              as double?,
+      geofenceRadiusM: null == geofenceRadiusM
+          ? _self.geofenceRadiusM
+          : geofenceRadiusM // ignore: cast_nullable_to_non_nullable
+              as int,
       createdAt: freezed == createdAt
           ? _self.createdAt
           : createdAt // ignore: cast_nullable_to_non_nullable

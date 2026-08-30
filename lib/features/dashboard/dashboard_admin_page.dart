@@ -218,7 +218,9 @@ class _DashboardAdminPageState extends ConsumerState<DashboardAdminPage> {
               title: 'الحضور اليومي',
               subtitle: 'متابعة حضور وانصراف الموظفين',
               icon: Icons.fact_check_rounded,
-              onTap: () {},
+              onTap: () {
+                context.push('/admin/attendance-today');
+              },
             ),
             _AdminActionTile(
               title: 'طلبات الإجازات',

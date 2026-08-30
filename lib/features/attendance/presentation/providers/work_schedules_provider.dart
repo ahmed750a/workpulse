@@ -85,6 +85,10 @@ class WorkSchedulesNotifier extends Notifier<WorkSchedulesState> {
     required String scheduleType,
     required int requiredMinutes,
     required bool allowCheckInAfterEndTime,
+    required bool geofenceEnabled,
+    double? geofenceLat,
+    double? geofenceLng,
+    required int geofenceRadiusM,
   }) async {
     state = state.copyWith(isLoading: true, clearError: true);
 
@@ -99,6 +103,10 @@ class WorkSchedulesNotifier extends Notifier<WorkSchedulesState> {
         scheduleType: scheduleType,
         requiredMinutes: requiredMinutes,
         allowCheckInAfterEndTime: allowCheckInAfterEndTime,
+        geofenceEnabled: geofenceEnabled,
+        geofenceLat: geofenceLat,
+        geofenceLng: geofenceLng,
+        geofenceRadiusM: geofenceRadiusM,
       );
 
       await loadSchedules();
@@ -123,6 +131,10 @@ class WorkSchedulesNotifier extends Notifier<WorkSchedulesState> {
     required String scheduleType,
     required int requiredMinutes,
     required bool allowCheckInAfterEndTime,
+    required bool geofenceEnabled,
+    double? geofenceLat,
+    double? geofenceLng,
+    required int geofenceRadiusM,
   }) async {
     state = state.copyWith(isLoading: true, clearError: true);
 
@@ -138,6 +150,10 @@ class WorkSchedulesNotifier extends Notifier<WorkSchedulesState> {
         scheduleType: scheduleType,
         requiredMinutes: requiredMinutes,
         allowCheckInAfterEndTime: allowCheckInAfterEndTime,
+        geofenceEnabled: geofenceEnabled,
+        geofenceLat: geofenceLat,
+        geofenceLng: geofenceLng,
+        geofenceRadiusM: geofenceRadiusM,
       );
 
       await loadSchedules();

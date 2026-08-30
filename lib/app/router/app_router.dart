@@ -19,7 +19,7 @@ import '../../features/leaves/presentation/pages/leaves_page.dart';
 import '../../features/permissions/presentation/pages/admin_permissions_page.dart';
 import '../../features/permissions/presentation/pages/permissions_page.dart';
 import '../../features/attendance/presentation/pages/work_schedules_page.dart';
-
+import '../../features/attendance/presentation/pages/admin_today_attendance_page.dart';
 final appRouterProvider = Provider.autoDispose<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
 
@@ -46,6 +46,10 @@ final appRouterProvider = Provider.autoDispose<GoRouter>((ref) {
     },
 
     routes: [
+      GoRoute(
+        path: '/admin/attendance-today',
+        builder: (context, state) => const AdminTodayAttendancePage(),
+      ),
       GoRoute(
         path: '/leaves',
         builder: (context, state) => const LeavesPage(),

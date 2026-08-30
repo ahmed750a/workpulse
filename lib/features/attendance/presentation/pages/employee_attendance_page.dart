@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/attendance_break_model.dart';
 import '../../../../core/utils/time_formatters.dart';
 import '../providers/attendance_provider.dart';
 import '../../../../../core/services/work_timer_service.dart';
-
 class EmployeeAttendancePage extends ConsumerStatefulWidget {
   const EmployeeAttendancePage({super.key});
 
@@ -56,6 +56,20 @@ class _EmployeeAttendancePageState extends ConsumerState<EmployeeAttendancePage>
     final totalBreakMinutes = state.totalBreakMinutes;
     final hasActiveBreak = activeBreak != null;
 
+    final lat = state.currentLatitude;
+    final lng = state.currentLongitude;
+    final distance = state.currentDistanceMeters;
+    final isOutside = state.isOutsideGeofence;
+
+    final distanceText = distance == null
+        ? '--'
+        : distance >= 1000
+        ? '${(distance / 1000).toStringAsFixed(2)} كم'
+        : '${distance.toStringAsFixed(0)} متر';
+    final isDutyOpen = hasCheckedIn && !hasCheckedOut;
+    final isGeofenceEnabled = schedule?.geofenceEnabled == true;
+    final hasGeofencePoint =
+        schedule?.geofenceLat != null && schedule?.geofenceLng != null;
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -137,6 +151,7 @@ class _EmployeeAttendancePageState extends ConsumerState<EmployeeAttendancePage>
               ),
             ),
             const SizedBox(height: 22),
+            const SizedBox(height: 22),
             if (isHourlySchedule && schedule != null) ...[
               StreamBuilder<Duration>(
                 stream: WorkTimerService.instance.durationStream,
@@ -156,6 +171,154 @@ class _EmployeeAttendancePageState extends ConsumerState<EmployeeAttendancePage>
                 },
               ),
               const SizedBox(height: 22),
+            ],
+
+            if (isDutyOpen) ...[
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: isOutside
+                        ? const [Color(0xFFFFF1F2), Color(0xFFFFFBEB)]
+                        : const [Color(0xFFECFDF5), Color(0xFFF0F9FF)],
+                  ),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: isOutside ? const Color(0xFFFECACA) : const Color(0xFFA7F3D0),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 14,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 18,
+                          backgroundColor:
+                          isOutside ? const Color(0xFFFEF2F2) : const Color(0xFFECFDF5),
+                          child: Icon(
+                            isOutside ? Icons.location_off_rounded : Icons.location_on_rounded,
+                            color: isOutside ? const Color(0xFFDC2626) : const Color(0xFF0F766E),
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'حالة تتبع الموقع',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF0F172A),
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                        if (lat != null && lng != null)
+                          IconButton(
+                            tooltip: 'نسخ الإحداثيات',
+                            onPressed: () async {
+                              final text = '${lat.toStringAsFixed(6)},${lng.toStringAsFixed(6)}';
+                              await Clipboard.setData(ClipboardData(text: text));
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('تم نسخ الإحداثيات'),
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.copy_rounded, size: 18),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    if (!isGeofenceEnabled)
+                      const Text(
+                        'النطاق غير مفعل في جدول الدوام.',
+                        style: TextStyle(
+                          color: Color(0xFF92400E),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      )
+                    else if (!hasGeofencePoint)
+                      const Text(
+                        'إحداثيات النطاق غير محفوظة في جدول الدوام.',
+                        style: TextStyle(
+                          color: Color(0xFF92400E),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      )
+                    else if (lat == null || lng == null)
+                        const Text(
+                          'جاري جلب موقعك الحالي...',
+                          style: TextStyle(
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        )
+                      else ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: isOutside ? const Color(0xFFFEF2F2) : const Color(0xFFECFDF5),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    isOutside ? 'خارج نطاق الدوام' : 'داخل نطاق الدوام',
+                                    style: TextStyle(
+                                      color: isOutside
+                                          ? const Color(0xFFDC2626)
+                                          : const Color(0xFF0F766E),
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  distanceText,
+                                  style: const TextStyle(
+                                    color: Color(0xFF0F172A),
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            'خط العرض: ${lat.toStringAsFixed(6)}',
+                            style: const TextStyle(
+                              color: Color(0xFF334155),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'خط الطول: ${lng.toStringAsFixed(6)}',
+                            style: const TextStyle(
+                              color: Color(0xFF334155),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 14),
+
             ],
             if (state.error != null)
               Container(
@@ -351,6 +514,8 @@ class _EmployeeAttendancePageState extends ConsumerState<EmployeeAttendancePage>
             ],
           ],
         ),
+
+
       ),
     );
   }

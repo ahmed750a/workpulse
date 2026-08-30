@@ -31,6 +31,10 @@ class WorkScheduleRepository {
     required String scheduleType,
     required int requiredMinutes,
     required bool allowCheckInAfterEndTime,
+    required bool geofenceEnabled,
+    double? geofenceLat,
+    double? geofenceLng,
+    required int geofenceRadiusM,
   }) async {
     if (isDefault) {
       await _client
@@ -49,6 +53,10 @@ class WorkScheduleRepository {
       'schedule_type': scheduleType,
       'required_minutes': requiredMinutes,
       'allow_check_in_after_end_time': allowCheckInAfterEndTime,
+      'geofence_enabled': geofenceEnabled,
+      'geofence_lat': geofenceEnabled ? geofenceLat : null,
+      'geofence_lng': geofenceEnabled ? geofenceLng : null,
+      'geofence_radius_m': geofenceRadiusM,
     });
   }
 
@@ -63,6 +71,10 @@ class WorkScheduleRepository {
     required String scheduleType,
     required int requiredMinutes,
     required bool allowCheckInAfterEndTime,
+    required bool geofenceEnabled,
+    double? geofenceLat,
+    double? geofenceLng,
+    required int geofenceRadiusM,
   }) async {
     if (isDefault) {
       await _client
@@ -82,6 +94,10 @@ class WorkScheduleRepository {
       'schedule_type': scheduleType,
       'required_minutes': requiredMinutes,
       'allow_check_in_after_end_time': allowCheckInAfterEndTime,
+      'geofence_enabled': geofenceEnabled,
+      'geofence_lat': geofenceEnabled ? geofenceLat : null,
+      'geofence_lng': geofenceEnabled ? geofenceLng : null,
+      'geofence_radius_m': geofenceRadiusM,
     }).eq('id', id);
   }
   Future<void> deleteSchedule(String id) async {

@@ -9,8 +9,10 @@ class AttendanceRepository {
   final SupabaseClient _client;
   final WorkScheduleRepository _scheduleRepository;
 
-  AttendanceRepository(this._client, this._scheduleRepository);
+  // السماح بالحضور قبل بداية الدوام بحد أقصى 10 دقائق
+  static const int _earlyCheckInAllowanceMinutes = 10;
 
+  AttendanceRepository(this._client, this._scheduleRepository);
   String _authUserId() {
     final user = _client.auth.currentUser;
     if (user == null) {
@@ -353,6 +355,14 @@ class AttendanceRepository {
       final officialStart = _timeToDateTimeForDate(now, schedule.startTime);
       final officialEnd = _timeToDateTimeForDate(now, schedule.endTime);
 
+      // منع الحضور قبل بداية الدوام بأكثر من 10 دقائق
+      final earliestAllowedCheckIn = officialStart.subtract(
+        const Duration(minutes: _earlyCheckInAllowanceMinutes),
+      );
+      if (now.isBefore(earliestAllowedCheckIn)) {
+        throw Exception('يمكن تسجيل الحضور قبل بداية الدوام بعشر دقائق فقط.');
+      }
+
       if (!schedule.allowCheckInAfterEndTime && now.isAfter(officialEnd)) {
         throw Exception('لا يمكن تسجيل الحضور بعد نهاية وقت الدوام الرسمي');
       }
@@ -445,6 +455,119 @@ class AttendanceRepository {
       checkInTime: now,
     );
     return AttendanceRecordModel.fromJson(rows.first);
+  }
+
+  Future<void> syncMyLiveLocation({
+    required double lat,
+    required double lng,
+  }) async {
+    await _client.rpc(
+      'set_my_live_location',
+      params: {
+        'p_lat': lat,
+        'p_lng': lng,
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> getTodayAttendanceForEmployeeForAdmin({
+    required String employeeId,
+  }) async {
+    final profile = await _client
+        .from('profiles')
+        .select('''
+        id,
+        full_name,
+        email,
+        current_lat,
+        current_lng,
+        current_location_updated_at
+      ''')
+        .eq('id', employeeId)
+        .maybeSingle();
+
+    if (profile == null) {
+      throw Exception('الموظف غير موجود');
+    }
+
+    final records = await _client
+        .from('attendance_records')
+        .select()
+        .eq('employee_id', employeeId)
+        .eq('attendance_date', _dateOnly(DateTime.now()))
+        .order('created_at', ascending: false)
+        .limit(1);
+
+    final record =
+    records.isNotEmpty ? Map<String, dynamic>.from(records.first) : null;
+
+    final checkInAt = record?['check_in_at'];
+    final checkOutAt = record?['check_out_at'];
+
+    return {
+      'record': record,
+      'employeeId': employeeId,
+      'employeeName': profile['full_name']?.toString() ?? 'غير معروف',
+      'employeeEmail': profile['email']?.toString() ?? '',
+      'currentLat': profile['current_lat'],
+      'currentLng': profile['current_lng'],
+      'locationUpdatedAt': profile['current_location_updated_at'],
+      'todayStatus': record?['status']?.toString(),
+      'isOnDuty': checkInAt != null && checkOutAt == null,
+    };
+  }
+
+
+  Future<List<Map<String, dynamic>>> getTodayAttendanceForAdmin() async {
+    final data = await _client
+        .from('attendance_records')
+        .select('''
+        *,
+        profiles!attendance_records_employee_id_fkey(
+          id,
+          full_name,
+          email,
+          current_lat,
+          current_lng,
+          current_location_updated_at
+        )
+      ''')
+        .eq('attendance_date', _dateOnly(DateTime.now()))
+        .order('created_at', ascending: false);
+
+    return data.map<Map<String, dynamic>>((item) {
+      final profile = item['profiles'] as Map<String, dynamic>?;
+
+      return {
+        'record': item,
+        'employeeId': item['employee_id'],
+        'employeeName': profile?['full_name']?.toString() ?? 'غير معروف',
+        'employeeEmail': profile?['email']?.toString() ?? '',
+        'currentLat': profile?['current_lat'],
+        'currentLng': profile?['current_lng'],
+        'locationUpdatedAt': profile?['current_location_updated_at'],
+      };
+    }).toList();
+  }
+
+  Future<List<AttendanceRecordModel>> getEmployeeMonthlyRecordsForAdmin({
+    required String employeeId,
+    required DateTime month,
+  }) async {
+    final start = DateTime(month.year, month.month, 1);
+    final end = DateTime(month.year, month.month + 1, 1);
+
+    final data = await _client
+        .from('attendance_records')
+        .select()
+        .eq('employee_id', employeeId)
+        .gte('attendance_date', _dateOnly(start))
+        .lt('attendance_date', _dateOnly(end))
+        .order('attendance_date', ascending: false);
+
+    return data
+        .map<AttendanceRecordModel>((item) => AttendanceRecordModel.fromJson(item))
+        .toList();
   }
   Future<AttendanceRecordModel> checkOut() async {
     final employeeId = _authUserId();

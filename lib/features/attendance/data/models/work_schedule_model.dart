@@ -29,9 +29,25 @@ abstract class WorkScheduleModel with _$WorkScheduleModel {
 
     @JsonKey(name: 'required_minutes')
     required int requiredMinutes,
+
     @JsonKey(name: 'allow_check_in_after_end_time')
     @Default(true)
     bool allowCheckInAfterEndTime,
+
+    @JsonKey(name: 'geofence_enabled')
+    @Default(false)
+    bool geofenceEnabled,
+
+    @JsonKey(name: 'geofence_lat')
+    double? geofenceLat,
+
+    @JsonKey(name: 'geofence_lng')
+    double? geofenceLng,
+
+    @JsonKey(name: 'geofence_radius_m')
+    @Default(100)
+    int geofenceRadiusM,
+
     @JsonKey(name: 'created_at')
     String? createdAt,
   }) = _WorkScheduleModel;

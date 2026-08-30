@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
 import '../../../../../app/providers/supabase_provider.dart';
 import '../../../../../core/services/work_timer_service.dart';
+import '../../../../../core/services/location_tracking_service.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/models/attendance_break_model.dart';
 import '../../data/models/attendance_record_model.dart';
@@ -30,9 +33,15 @@ class AttendanceState {
   final int totalBreakMinutes;
   final List<AttendanceRecordModel> monthlyRecords;
   final List<AttendanceRecordModel> todayAllRecords;
+  final List<Map<String, dynamic>> todayAdminAttendance;
+  final List<AttendanceRecordModel> adminEmployeeRecords;
   final bool isLoading;
   final String? error;
   final bool hasPendingCheckOut;
+  final double? currentLatitude;
+  final double? currentLongitude;
+  final double? currentDistanceMeters;
+  final bool isOutsideGeofence;
 
   const AttendanceState({
     this.todayRecord,
@@ -42,9 +51,15 @@ class AttendanceState {
     this.totalBreakMinutes = 0,
     this.monthlyRecords = const [],
     this.todayAllRecords = const [],
+    this.todayAdminAttendance = const [],
+    this.adminEmployeeRecords = const [],
     this.isLoading = false,
     this.error,
     this.hasPendingCheckOut = false,
+    this.currentLatitude,
+    this.currentLongitude,
+    this.currentDistanceMeters,
+    this.isOutsideGeofence = false,
   });
 
   AttendanceState copyWith({
@@ -55,10 +70,17 @@ class AttendanceState {
     int? totalBreakMinutes,
     List<AttendanceRecordModel>? monthlyRecords,
     List<AttendanceRecordModel>? todayAllRecords,
+    List<Map<String, dynamic>>? todayAdminAttendance,
+    List<AttendanceRecordModel>? adminEmployeeRecords,
     bool? isLoading,
     String? error,
     bool clearError = false,
     bool? hasPendingCheckOut,
+    double? currentLatitude,
+    double? currentLongitude,
+    double? currentDistanceMeters,
+    bool? isOutsideGeofence,
+    bool clearLocation = false,
     bool clearTodayRecord = false,
     bool clearActiveBreak = false,
   }) {
@@ -70,10 +92,15 @@ class AttendanceState {
       totalBreakMinutes: totalBreakMinutes ?? this.totalBreakMinutes,
       monthlyRecords: monthlyRecords ?? this.monthlyRecords,
       todayAllRecords: todayAllRecords ?? this.todayAllRecords,
+      todayAdminAttendance: todayAdminAttendance ?? this.todayAdminAttendance,
+      adminEmployeeRecords: adminEmployeeRecords ?? this.adminEmployeeRecords,
       isLoading: isLoading ?? this.isLoading,
       error: clearError ? null : error ?? this.error,
       hasPendingCheckOut: hasPendingCheckOut ?? this.hasPendingCheckOut,
-    );
+      currentLatitude: clearLocation ? null : currentLatitude ?? this.currentLatitude,
+      currentLongitude: clearLocation ? null : currentLongitude ?? this.currentLongitude,
+      currentDistanceMeters: clearLocation ? null : currentDistanceMeters ?? this.currentDistanceMeters,
+      isOutsideGeofence: isOutsideGeofence ?? this.isOutsideGeofence,    );
   }
 }
 
@@ -81,7 +108,7 @@ class AttendanceNotifier extends Notifier<AttendanceState> {
   late AttendanceRepository _repository;
   bool _isMonitoring = false;
   bool _isSyncing = false;
-
+  StreamSubscription<LiveLocationStatus>? _locationSub;
   @override
   AttendanceState build() {
     // ✅ يعيد البناء عند كل تسجيل خروج أو تغير مستخدم
@@ -91,6 +118,7 @@ class AttendanceNotifier extends Notifier<AttendanceState> {
     _repository = ref.read(attendanceRepositoryProvider);
     _restoreState();
     _startConnectivityMonitoring();
+    _startLocationListener();
     return const AttendanceState();
   }
 
@@ -126,6 +154,94 @@ class AttendanceNotifier extends Notifier<AttendanceState> {
       subscription.cancel();
       _isMonitoring = false;
     });
+  }
+
+  void _startLocationListener() {
+    _locationSub?.cancel();
+
+    _locationSub =
+        LocationTrackingService.instance.locationStream.listen((live) {
+          state = state.copyWith(
+            currentLatitude: live.latitude,
+            currentLongitude: live.longitude,
+            currentDistanceMeters: live.distanceMeters,
+            isOutsideGeofence: live.isOutside,
+          );
+
+          _repository.syncMyLiveLocation(
+            lat: live.latitude,
+            lng: live.longitude,
+          );
+        });
+
+    ref.onDispose(() async {
+      await _locationSub?.cancel();
+      await LocationTrackingService.instance.stop();
+    });
+  }
+
+  Future<void> loadTodayAttendanceForAdmin() async {
+    state = state.copyWith(isLoading: true, clearError: true);
+
+    try {
+      final rows = await _repository.getTodayAttendanceForAdmin();
+      state = state.copyWith(
+        todayAdminAttendance: rows,
+        isLoading: false,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        error: e.toString(),
+        isLoading: false,
+      );
+    }
+  }
+  Future<void> loadAdminEmployeeMonthlyRecords({
+    required String employeeId,
+    required DateTime month,
+  }) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+
+    try {
+      final records = await _repository.getEmployeeMonthlyRecordsForAdmin(
+        employeeId: employeeId,
+        month: month,
+      );
+
+      state = state.copyWith(
+        adminEmployeeRecords: records,
+        isLoading: false,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        error: e.toString(),
+        isLoading: false,
+      );
+    }
+  }
+  Future<void> _syncLocationTracking({
+    required WorkScheduleModel? schedule,
+    required AttendanceRecordModel? record,
+  }) async {
+    final isInsideDuty = record?.checkInAt != null && record?.checkOutAt == null;
+
+    final canTrack = schedule?.geofenceEnabled == true &&
+        schedule?.geofenceLat != null &&
+        schedule?.geofenceLng != null;
+
+    if (isInsideDuty && canTrack) {
+      await LocationTrackingService.instance.start(
+        targetLat: schedule!.geofenceLat!,
+        targetLng: schedule.geofenceLng!,
+        radiusMeters: schedule.geofenceRadiusM,
+      );
+    } else {
+      await LocationTrackingService.instance.stop();
+      state = state.copyWith(
+        clearLocation: true,
+        isOutsideGeofence: false,
+      );
+    }
   }
 
   Future<void> _restoreState() async {
@@ -212,6 +328,11 @@ class AttendanceNotifier extends Notifier<AttendanceState> {
     final todayBreaks = await _repository.getTodayBreaks();
     final totalBreakMinutes = await _repository.getTodayBreakMinutes();
 
+    await _syncLocationTracking(
+      schedule: schedule,
+      record: record,
+    );
+
     state = state.copyWith(
       todayRecord: record,
       currentSchedule: schedule,
@@ -236,6 +357,11 @@ class AttendanceNotifier extends Notifier<AttendanceState> {
       final activeBreak = await _repository.getActiveBreak();
       final todayBreaks = await _repository.getTodayBreaks();
       final totalBreakMinutes = await _repository.getTodayBreakMinutes();
+
+      await _syncLocationTracking(
+        schedule: schedule,
+        record: record,
+      );
 
       if (record?.checkInAt != null && record?.checkOutAt == null) {
         if (activeBreak != null) {

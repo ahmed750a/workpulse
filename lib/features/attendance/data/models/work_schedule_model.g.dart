@@ -21,6 +21,10 @@ _WorkScheduleModel _$WorkScheduleModelFromJson(Map<String, dynamic> json) =>
       requiredMinutes: (json['required_minutes'] as num).toInt(),
       allowCheckInAfterEndTime:
           json['allow_check_in_after_end_time'] as bool? ?? true,
+      geofenceEnabled: json['geofence_enabled'] as bool? ?? false,
+      geofenceLat: (json['geofence_lat'] as num?)?.toDouble(),
+      geofenceLng: (json['geofence_lng'] as num?)?.toDouble(),
+      geofenceRadiusM: (json['geofence_radius_m'] as num?)?.toInt() ?? 100,
       createdAt: json['created_at'] as String?,
     );
 
@@ -36,5 +40,9 @@ Map<String, dynamic> _$WorkScheduleModelToJson(_WorkScheduleModel instance) =>
       'schedule_type': instance.scheduleType,
       'required_minutes': instance.requiredMinutes,
       'allow_check_in_after_end_time': instance.allowCheckInAfterEndTime,
+      'geofence_enabled': instance.geofenceEnabled,
+      'geofence_lat': instance.geofenceLat,
+      'geofence_lng': instance.geofenceLng,
+      'geofence_radius_m': instance.geofenceRadiusM,
       'created_at': instance.createdAt,
     };

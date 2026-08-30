@@ -6,7 +6,7 @@ import '../../data/models/employee_model.dart';
 import '../providers/employees_provider.dart';
 import '../../../attendance/data/models/work_schedule_model.dart';
 import '../../../attendance/presentation/providers/work_schedules_provider.dart';
-
+import '../../../attendance/presentation/pages/admin_employee_attendance_details_page.dart';
 class EmployeesPage extends ConsumerStatefulWidget {
   const EmployeesPage({super.key});
 
@@ -439,9 +439,24 @@ class _EmployeesPageState extends ConsumerState<EmployeesPage> {
                     padding: const EdgeInsets.only(bottom: 14),
                     child: _EmployeeCard(
                       employee: employee,
-                      scheduleName:
-                      schedule?.name ?? 'الجدول الافتراضي',
+                      scheduleName: schedule?.name ?? 'الجدول الافتراضي',
                       isSchedulesLoading: schedulesState.isLoading,
+                      onOpenAttendance: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => AdminEmployeeAttendanceDetailsPage(
+                              employeeId: employee.id,
+                              employeeName: employee.fullName,
+                              employeeEmail: employee.email,
+                              currentLat: null,
+                              currentLng: null,
+                              todayStatus: null,
+                              isOnDuty: false,
+                              todayRecord: null,
+                            ),
+                          ),
+                        );
+                      },
                       onToggleStatus: (value) {
                         _confirmEmployeeStatusChange(
                           employee: employee,
@@ -571,6 +586,7 @@ class _EmployeeCard extends StatelessWidget {
     required this.employee,
     required this.scheduleName,
     required this.isSchedulesLoading,
+    required this.onOpenAttendance,
     required this.onToggleStatus,
     required this.onChangeSchedule,
   });
@@ -578,6 +594,7 @@ class _EmployeeCard extends StatelessWidget {
   final EmployeeModel employee;
   final String scheduleName;
   final bool isSchedulesLoading;
+  final VoidCallback onOpenAttendance;
   final ValueChanged<bool> onToggleStatus;
   final VoidCallback onChangeSchedule;
 
@@ -589,20 +606,25 @@ class _EmployeeCard extends StatelessWidget {
     final statusBg =
     isActive ? const Color(0xFFECFDF5) : const Color(0xFFFEF2F2);
 
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+        color: Colors.transparent,
+        child: InkWell(
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.045),
-            blurRadius: 22,
-            offset: const Offset(0, 11),
-          ),
-        ],
-      ),
+    onTap: onOpenAttendance,
+    child: Container(
+    padding: const EdgeInsets.all(18),
+    decoration: BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(24),
+    border: Border.all(color: const Color(0xFFE2E8F0)),
+    boxShadow: [
+    BoxShadow(
+    color: Colors.black.withValues(alpha: 0.045),
+    blurRadius: 22,
+    offset: const Offset(0, 11),
+    ),
+    ],
+    ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -721,8 +743,7 @@ class _EmployeeCard extends StatelessWidget {
             },
           ),
         ],
-      ),
-    );
+      ), )));
   }
 }
 
