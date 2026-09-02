@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
+import '../../features/corrections/presentation/pages/admin_corrections_page.dart';
+import '../../features/corrections/presentation/pages/corrections_page.dart';
 import '../../features/attendance/presentation/pages/monthly_attendance_page.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../../features/attendance/presentation/pages/employee_attendance_page.dart';
@@ -46,6 +47,16 @@ final appRouterProvider = Provider.autoDispose<GoRouter>((ref) {
     },
 
     routes: [
+      GoRoute(
+        path: '/admin/corrections',
+        builder: (context, state) => const AdminCorrectionsPage(),
+      ),
+
+      GoRoute(
+        path: '/corrections',
+        builder: (context, state) => const CorrectionsPage(),
+      ),
+
       GoRoute(
         path: '/admin/attendance-today',
         builder: (context, state) => const AdminTodayAttendancePage(),

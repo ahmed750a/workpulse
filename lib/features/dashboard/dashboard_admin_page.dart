@@ -245,6 +245,14 @@ class _DashboardAdminPageState extends ConsumerState<DashboardAdminPage> {
               onTap: () {context.push('/admin/permissions');},
             ),
             _AdminActionTile(
+              title: 'طلبات تعديل البصمات',
+              subtitle: 'مراجعة واعتماد أو رفض طلبات تعديل الحضور والانصراف',
+              icon: Icons.edit_calendar_rounded,
+              onTap: () {
+                context.push('/admin/corrections');
+              },
+            ),
+            _AdminActionTile(
               title: 'التقارير',
               subtitle: 'ملخصات شهرية وسجلات التأخير والغياب',
               icon: Icons.bar_chart_rounded,

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/attendance_record_model.dart';
 import '../../../../core/utils/time_formatters.dart';
 import '../providers/attendance_provider.dart';
+import '../widgets/monthly_day_record_card.dart';
 class AdminEmployeeAttendanceDetailsPage extends ConsumerStatefulWidget {
   const AdminEmployeeAttendanceDetailsPage({
     super.key,
@@ -149,7 +150,36 @@ class _AdminEmployeeAttendanceDetailsPageState
     ];
     return '${months[date.month - 1]} ${date.year}';
   }
-
+  Color _statusColor(String? status) {
+    switch (status) {
+      case 'checked_in':
+        return const Color(0xFF0284C7);
+      case 'checked_out':
+        return const Color(0xFF0F766E);
+      case 'late':
+        return const Color(0xFFDC2626);
+      case 'approved_late':
+        return const Color(0xFF0F766E);
+      case 'partially_approved_late':
+        return const Color(0xFFF59E0B);
+      case 'early_leave':
+        return const Color(0xFFEC4899);
+      case 'early_leave_partial':
+        return const Color(0xFFF59E0B);
+      case 'early_leave_approved':
+        return const Color(0xFF0F766E);
+      case 'late_checked_out':
+        return const Color(0xFFF59E0B);
+      case 'hours_incomplete':
+        return const Color(0xFFF59E0B);
+      case 'hours_completed':
+        return const Color(0xFF0F766E);
+      case 'hours_completed_with_overtime':
+        return const Color(0xFF7C3AED);
+      default:
+        return const Color(0xFF94A3B8);
+    }
+  }
   String _statusText(String? status) {
     switch (status) {
       case 'checked_in':
@@ -499,34 +529,18 @@ class _AdminEmployeeAttendanceDetailsPageState
               separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (context, i) {
                 final r = records[i];
-                return Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                final date = DateTime.parse(r.attendanceDate);
+
+                return MonthlyDayRecordCard(
+                  item: MonthlyDayRecordCardData(
+                    date: date,
+                    attendance: r,
+                    isApprovedLeave: false,
+                    leave: null,
+                    isWeekend: date.weekday == DateTime.friday || date.weekday == DateTime.saturday,
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('التاريخ: ${r.attendanceDate}',
-                          style: const TextStyle(fontWeight: FontWeight.w800)),
-                      const SizedBox(height: 6),
-                      Text(
-                        'الحضور: ${formatDateTimeToTime12(r.checkInAt)} - الانصراف: ${formatDateTimeToTime12(r.checkOutAt)}',
-                      ),
-                      Text('الحالة: ${_statusText(r.status)}'),
-                      Text('ساعات العمل: ${r.workedMinutes} دقيقة'),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: _deriveStatusTags(r)
-                            .map((tag) => _StatusTagChip(label: tag))
-                            .toList(),
-                      ),
-                    ],
-                  ),
+                  statusColor: _statusColor(r.status),
+                  statusText: _statusText(r.status),
                 );
               },
             ),

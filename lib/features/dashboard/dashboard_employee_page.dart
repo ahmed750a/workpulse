@@ -283,7 +283,7 @@ class _DashboardEmployeePageState extends ConsumerState<DashboardEmployeePage> {
               title: 'طلب تعديل بصمة',
               subtitle: 'في حال نسيان تسجيل الدخول أو الخروج',
               icon: Icons.edit_calendar_rounded,
-              onTap: () {},
+              onTap: () => context.push('/corrections'),
             ),
           ],
         ),
