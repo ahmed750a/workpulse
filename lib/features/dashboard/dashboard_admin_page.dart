@@ -1,9 +1,9 @@
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../employees/presentation/providers/employees_provider.dart';
 import '../auth/presentation/providers/auth_provider.dart';
+import '../reports/presentation/providers/reports_provider.dart';
 
 
 class DashboardAdminPage extends ConsumerStatefulWidget {
@@ -20,6 +20,8 @@ class _DashboardAdminPageState extends ConsumerState<DashboardAdminPage> {
 
     Future.microtask(() {
       ref.read(employeesProvider.notifier).loadEmployees();
+      ref.read(reportsProvider.notifier).loadAdminTodaySummary();
+      ref.read(reportsProvider.notifier).loadAdminTodayViolations();
     });
   }
 
@@ -27,11 +29,14 @@ class _DashboardAdminPageState extends ConsumerState<DashboardAdminPage> {
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
     final employeesState = ref.watch(employeesProvider);
-
+    final reportsState = ref.watch(reportsProvider);
+    final summary = reportsState.adminTodaySummary;
+    final violations = reportsState.todayViolations; // تعريف صريح واحد
     final employeesCount = employeesState.employees.length;
     final pendingEmployeesCount = employeesState.employees
         .where((employee) => employee.isActive != true)
         .length;
+    final violationsCount = violations.length; // الآن مستخدم فعليا
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -44,8 +49,17 @@ class _DashboardAdminPageState extends ConsumerState<DashboardAdminPage> {
         ),
         actions: [
           IconButton(
-            tooltip: 'تسجيل الخروج',
-            icon: const Icon(Icons.logout_rounded),
+            tooltip: 'تحديث',
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: () {
+              ref.read(employeesProvider.notifier).loadEmployees();
+              ref.read(reportsProvider.notifier).loadAdminTodaySummary();
+              ref.read(reportsProvider.notifier).loadAdminTodayViolations();
+            },
+          ),
+          IconButton(
+              tooltip: 'تسجيل الخروج',
+              icon: const Icon(Icons.logout_rounded),
               onPressed: () async {
                 await ref.read(authProvider.notifier).signOut();
               }
@@ -158,7 +172,7 @@ class _DashboardAdminPageState extends ConsumerState<DashboardAdminPage> {
                 Expanded(
                   child: _AdminStatCard(
                     title: 'حضور اليوم',
-                    value: '--',
+                    value: '${summary?.checkedInNow ?? 0}',
                     icon: Icons.login_rounded,
                     color: const Color(0xFF0284C7),
                   ),
@@ -166,16 +180,29 @@ class _DashboardAdminPageState extends ConsumerState<DashboardAdminPage> {
                 const SizedBox(width: 14),
                 Expanded(
                   child: _AdminStatCard(
-                    title: 'الطلبات',
-                    value: '--',
+                    title: 'تأخير اليوم',
+                    value: '${summary?.lateToday ?? 0}',
                     icon: Icons.pending_actions_rounded,
                     color: const Color(0xFF7C3AED),
                   ),
                 ),
               ],
             ),
-
+            const Text(
+              'مخالفات اليوم',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _ViolationsEntryTile(
+              violationsCount: violationsCount,
+              onTap: () => context.push('/admin/reports/violations'),
+            ),
             const SizedBox(height: 26),
+
 
             const Text(
               'إدارة النظام',
@@ -254,9 +281,11 @@ class _DashboardAdminPageState extends ConsumerState<DashboardAdminPage> {
             ),
             _AdminActionTile(
               title: 'التقارير',
-              subtitle: 'ملخصات شهرية وسجلات التأخير والغياب',
+              subtitle: 'الدخول إلى مركز تقارير الإدارة (10 تقارير)',
               icon: Icons.bar_chart_rounded,
-              onTap: () {},
+              onTap: () {
+                context.push('/admin/reports');
+              },
             ),
           ],
         ),
@@ -264,7 +293,57 @@ class _DashboardAdminPageState extends ConsumerState<DashboardAdminPage> {
     );
   }
 }
+class _ViolationsEntryTile extends StatelessWidget {
+  const _ViolationsEntryTile({
+    required this.violationsCount,
+    required this.onTap,
+  });
 
+  final int violationsCount;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasViolations = violationsCount > 0;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              hasViolations
+                  ? 'عدد مخالفات اليوم: $violationsCount'
+                  : 'لا توجد مخالفات اليوم',
+              style: TextStyle(
+                color: hasViolations
+                    ? const Color(0xFF0F172A)
+                    : const Color(0xFF0F766E),
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          ElevatedButton.icon(
+            onPressed: onTap,
+            icon: const Icon(Icons.open_in_new_rounded, size: 18),
+            label: const Text('عرض الكل'),
+            style: ElevatedButton.styleFrom(
+              elevation: 0,
+              backgroundColor: const Color(0xFF0F766E),
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 class _AdminStatCard extends StatelessWidget {
   const _AdminStatCard({
     required this.title,

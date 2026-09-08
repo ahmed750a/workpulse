@@ -7,7 +7,9 @@ list(APPEND FLUTTER_PLUGIN_LIST
   connectivity_plus
   firebase_core
   geolocator_windows
+  printing
   share_plus
+  syncfusion_pdfviewer_windows
   url_launcher_windows
 )
 

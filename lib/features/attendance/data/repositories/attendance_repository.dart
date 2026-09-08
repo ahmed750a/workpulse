@@ -46,7 +46,37 @@ class AttendanceRepository {
     final parts = time.split(':');
     return int.parse(parts[0]) * 60 + int.parse(parts[1]);
   }
+  Future<List<Map<String, dynamic>>> getAdminAttendanceRecordsByMonth({
+    required DateTime month,
+  }) async {
+    final start = DateTime(month.year, month.month, 1);
+    final end = DateTime(month.year, month.month + 1, 1);
 
+    final data = await _client
+        .from('attendance_records')
+        .select('''
+        *,
+        profiles!attendance_records_employee_id_fkey(
+          id,
+          full_name,
+          email
+        )
+      ''')
+        .gte('attendance_date', _dateOnly(start))
+        .lt('attendance_date', _dateOnly(end))
+        .order('attendance_date', ascending: false)
+        .order('created_at', ascending: false);
+
+    return data.map<Map<String, dynamic>>((item) {
+      final profile = item['profiles'] as Map<String, dynamic>?;
+      return {
+        'record': item,
+        'employeeId': item['employee_id'],
+        'employeeName': profile?['full_name']?.toString() ?? 'غير معروف',
+        'employeeEmail': profile?['email']?.toString() ?? '',
+      };
+    }).toList();
+  }
   Future<AttendanceBreakModel?> getActiveBreak() async {
     final employeeId = _authUserId();
     final rows = await _client

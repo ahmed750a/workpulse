@@ -27,7 +27,11 @@ dependencies:
   firebase_core: ^2.32.0
   firebase_crashlytics: ^3.5.0
   geolocator: ^13.0.2
-
+  pdf: ^3.11.1
+  printing: ^5.13.4
+  syncfusion_flutter_pdfviewer: ^33.2.13
+  hand_signature: ^3.1.0+2
+  syncfusion_flutter_pdf: ^33.2.13
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -42,3 +46,9 @@ flutter:
 
   assets:
     - .env
+  fonts:
+   - family: ArabicPdf
+     fonts:
+       - asset: assets/fonts/NotoNaskhArabic-Regular.ttf
+       - asset: assets/fonts/pt-bold-heading.ttf
+         weight: 700

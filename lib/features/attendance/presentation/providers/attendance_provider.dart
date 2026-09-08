@@ -179,7 +179,26 @@ class AttendanceNotifier extends Notifier<AttendanceState> {
       await LocationTrackingService.instance.stop();
     });
   }
+  Future<void> loadAdminAttendanceByMonth({
+    required DateTime month,
+  }) async {
+    state = state.copyWith(isLoading: true, clearError: true);
 
+    try {
+      final rows = await _repository.getAdminAttendanceRecordsByMonth(
+        month: month,
+      );
+      state = state.copyWith(
+        todayAdminAttendance: rows, // نعيد استخدام نفس الحقل الحالي
+        isLoading: false,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        error: e.toString(),
+        isLoading: false,
+      );
+    }
+  }
   Future<void> loadTodayAttendanceForAdmin() async {
     state = state.copyWith(isLoading: true, clearError: true);
 

@@ -21,6 +21,18 @@ import '../../features/permissions/presentation/pages/admin_permissions_page.dar
 import '../../features/permissions/presentation/pages/permissions_page.dart';
 import '../../features/attendance/presentation/pages/work_schedules_page.dart';
 import '../../features/attendance/presentation/pages/admin_today_attendance_page.dart';
+import '../../features/reports/presentation/admin_corrections_report_page.dart';
+import '../../features/reports/presentation/admin_daily_attendance_summary_page.dart';
+import '../../features/reports/presentation/admin_early_leave_report_page.dart';
+import '../../features/reports/presentation/admin_geofence_report_page.dart';
+import '../../features/reports/presentation/admin_late_report_page.dart';
+import '../../features/reports/presentation/admin_leaves_report_page.dart';
+import '../../features/reports/presentation/admin_monthly_attendance_by_employee_report_page.dart';
+import '../../features/reports/presentation/admin_permissions_report_page.dart';
+import '../../features/reports/presentation/admin_reports_page.dart';
+import '../../features/reports/presentation/admin_today_violations_page.dart';
+import '../../features/reports/presentation/admin_work_hours_report_page.dart';
+
 final appRouterProvider = Provider.autoDispose<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
 
@@ -62,12 +74,56 @@ final appRouterProvider = Provider.autoDispose<GoRouter>((ref) {
         builder: (context, state) => const AdminTodayAttendancePage(),
       ),
       GoRoute(
+        path: '/admin/reports',
+        builder: (context, state) => const AdminReportsPage(),
+      ),
+      GoRoute(
+        path: '/admin/reports/late',
+        builder: (context, state) => const AdminLateReportPage(),
+      ),
+      GoRoute(
+        path: '/admin/reports/early-leave',
+        builder: (context, state) => const AdminEarlyLeaveReportPage(),
+      ),
+      GoRoute(
+        path: '/admin/reports/work-hours',
+        builder: (context, state) => const AdminWorkHoursReportPage(),
+      ),
+      GoRoute(
+        path: '/admin/reports/daily-summary',
+        builder: (context, state) => const AdminDailyAttendanceSummaryPage(),
+      ),
+      GoRoute(
+        path: '/admin/reports/violations',
+        builder: (context, state) => const AdminTodayViolationsPage(),
+      ),
+      GoRoute(
+        path: '/admin/reports/leaves',
+        builder: (context, state) => const AdminLeavesReportPage(),
+      ),
+      GoRoute(
+        path: '/admin/reports/monthly-attendance-by-employee',
+        builder: (context, state) => const AdminMonthlyAttendanceByEmployeeReportPage(),
+      ),
+      GoRoute(
         path: '/leaves',
         builder: (context, state) => const LeavesPage(),
       ),
       GoRoute(
         path: '/admin/leaves',
         builder: (context, state) => const AdminLeavesPage(),
+      ),
+      GoRoute(
+        path: '/admin/reports/permissions',
+        builder: (context, state) => const AdminPermissionsReportPage(),
+      ),
+      GoRoute(
+        path: '/admin/reports/geofence',
+        builder: (context, state) => const AdminGeofenceReportPage(),
+      ),
+      GoRoute(
+        path: '/admin/reports/corrections',
+        builder: (context, state) => const AdminCorrectionsReportPage(),
       ),
       GoRoute(
         path: '/admin/leave-balances',
