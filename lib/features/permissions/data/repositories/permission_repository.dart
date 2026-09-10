@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../../core/services/app_notification_dispatcher.dart';
 import '../models/permission_review_item.dart';
 import '../models/permission_model.dart';
 class PermissionRepository {
@@ -110,6 +111,25 @@ class PermissionRepository {
         .select()
         .single();
 
+    final profile = await _client
+        .from('profiles')
+        .select('full_name')
+        .eq('id', employeeId)
+        .maybeSingle();
+
+    final employeeName = profile?['full_name']?.toString() ?? 'موظف';
+
+    try {
+      await AppNotificationDispatcher.instance.notifyAdmins(
+        client: _client,
+        senderId: employeeId,
+        title: 'طلب إذن جديد',
+        body: '$employeeName أرسل طلب إذن جديد بانتظار المراجعة.',
+        kind: 'permission_request',
+        payload: {'permission_id': data['id']},
+      );
+    } catch (_) {}
+
     return PermissionModel.fromJson(data);
   }
 
@@ -142,6 +162,12 @@ class PermissionRepository {
     required String permissionId,
     required String reviewedBy,
   }) async {
+    final row = await _client
+        .from('permissions')
+        .select('employee_id')
+        .eq('id', permissionId)
+        .maybeSingle();
+
     await _client
         .from('permissions')
         .update({
@@ -151,6 +177,21 @@ class PermissionRepository {
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     })
         .eq('id', permissionId);
+
+    final employeeId = row?['employee_id']?.toString();
+    if (employeeId != null) {
+      try {
+        await AppNotificationDispatcher.instance.notifyEmployee(
+          client: _client,
+          recipientId: employeeId,
+          senderId: reviewedBy,
+          title: 'تم قبول طلب الإذن',
+          body: 'تمت الموافقة على طلب الإذن الخاص بك.',
+          kind: 'permission_approved',
+          payload: {'permission_id': permissionId},
+        );
+      } catch (_) {}
+    }
   }
 
   // ✅ للمدير: رفض طلب
@@ -159,6 +200,12 @@ class PermissionRepository {
     required String reviewedBy,
     required String rejectionReason,
   }) async {
+    final row = await _client
+        .from('permissions')
+        .select('employee_id')
+        .eq('id', permissionId)
+        .maybeSingle();
+
     await _client
         .from('permissions')
         .update({
@@ -169,6 +216,21 @@ class PermissionRepository {
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     })
         .eq('id', permissionId);
+
+    final employeeId = row?['employee_id']?.toString();
+    if (employeeId != null) {
+      try {
+        await AppNotificationDispatcher.instance.notifyEmployee(
+          client: _client,
+          recipientId: employeeId,
+          senderId: reviewedBy,
+          title: 'تم رفض طلب الإذن',
+          body: 'تم رفض طلب الإذن الخاص بك.',
+          kind: 'permission_rejected',
+          payload: {'permission_id': permissionId},
+        );
+      } catch (_) {}
+    }
   }
 
   // ✅ التحقق من وجود إذن معتمد لوقت معين

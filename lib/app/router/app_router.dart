@@ -17,6 +17,8 @@ import '../../features/leaves/presentation/pages/admin_carry_forward_page.dart';
 import '../../features/leaves/presentation/pages/admin_leave_balances_page.dart';
 import '../../features/leaves/presentation/pages/admin_leaves_page.dart';
 import '../../features/leaves/presentation/pages/leaves_page.dart';
+import '../../features/notifications/presentation/pages/admin_announcement_page.dart';
+import '../../features/notifications/presentation/pages/notifications_page.dart';
 import '../../features/permissions/presentation/pages/admin_permissions_page.dart';
 import '../../features/permissions/presentation/pages/permissions_page.dart';
 import '../../features/attendance/presentation/pages/work_schedules_page.dart';
@@ -181,6 +183,14 @@ final appRouterProvider = Provider.autoDispose<GoRouter>((ref) {
       GoRoute(
         path: '/permissions',
         builder: (context, state) => const PermissionsPage(),
+      ),
+      GoRoute(
+        path: '/notifications',
+        builder: (context, state) => const NotificationsPage(),
+      ),
+      GoRoute(
+        path: '/admin/announcements',
+        builder: (context, state) => const AdminAnnouncementPage(),
       ),
     ],
   );

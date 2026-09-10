@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../../core/services/app_notification_dispatcher.dart';
 import '../models/attendance_break_model.dart';
 import '../../../../../core/services/work_timer_service.dart';
 import '../models/attendance_record_model.dart';
@@ -484,6 +485,34 @@ class AttendanceRepository {
       userId: employeeId,
       checkInTime: now,
     );
+
+    final profile = await _client
+        .from('profiles')
+        .select('full_name')
+        .eq('id', employeeId)
+        .maybeSingle();
+
+    final employeeName = profile?['full_name']?.toString() ?? 'موظف';
+
+    try {
+      await AppNotificationDispatcher.instance.notifyAdmins(
+        client: _client,
+        senderId: employeeId,
+        title: 'بدء دوام: $employeeName',
+        body: '$employeeName سجّل الحضور وبدأ الدوام.',
+        kind: 'attendance_check_in_admin',
+      );
+
+      await AppNotificationDispatcher.instance.notifyEmployee(
+        client: _client,
+        recipientId: employeeId,
+        senderId: employeeId,
+        title: 'تم تسجيل حضورك',
+        body: 'تم تسجيل الدخول بنجاح.',
+        kind: 'attendance_check_in_employee',
+      );
+    } catch (_) {}
+
     return AttendanceRecordModel.fromJson(rows.first);
   }
 
@@ -795,6 +824,33 @@ class AttendanceRepository {
     }
 
     await WorkTimerService.instance.stop(userId: employeeId);
+
+    final profile = await _client
+        .from('profiles')
+        .select('full_name')
+        .eq('id', employeeId)
+        .maybeSingle();
+
+    final employeeName = profile?['full_name']?.toString() ?? 'موظف';
+
+    try {
+      await AppNotificationDispatcher.instance.notifyAdmins(
+        client: _client,
+        senderId: employeeId,
+        title: 'انتهاء دوام: $employeeName',
+        body: '$employeeName سجّل الانصراف وأنهى الدوام.',
+        kind: 'attendance_check_out_admin',
+      );
+
+      await AppNotificationDispatcher.instance.notifyEmployee(
+        client: _client,
+        recipientId: employeeId,
+        senderId: employeeId,
+        title: 'تم تسجيل انصرافك',
+        body: 'تم تسجيل نهاية الدوام بنجاح.',
+        kind: 'attendance_check_out_employee',
+      );
+    } catch (_) {}
 
     return AttendanceRecordModel.fromJson(rows.first);
   }

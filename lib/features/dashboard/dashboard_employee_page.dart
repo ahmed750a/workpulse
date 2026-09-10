@@ -96,8 +96,14 @@ class _DashboardEmployeePageState extends ConsumerState<DashboardEmployeePage> {
         ),
         actions: [
           IconButton(
-            tooltip: 'تسجيل الخروج',
-            icon: const Icon(Icons.logout_rounded),
+            tooltip: 'الإشعارات',
+            icon: const Icon(Icons.notifications_outlined),
+            onPressed: () {
+              context.push('/notifications');
+            },
+          ),          IconButton(
+              tooltip: 'تسجيل الخروج',
+              icon: const Icon(Icons.logout_rounded),
               onPressed: () async {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('logout pressed')),

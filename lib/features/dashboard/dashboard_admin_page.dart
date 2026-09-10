@@ -49,6 +49,12 @@ class _DashboardAdminPageState extends ConsumerState<DashboardAdminPage> {
         ),
         actions: [
           IconButton(
+            tooltip: 'الإشعارات',
+            icon: const Icon(Icons.notifications_outlined),
+            onPressed: () {
+              context.push('/notifications');
+            },
+          ),          IconButton(
             tooltip: 'تحديث',
             icon: const Icon(Icons.refresh_rounded),
             onPressed: () {
@@ -58,11 +64,11 @@ class _DashboardAdminPageState extends ConsumerState<DashboardAdminPage> {
             },
           ),
           IconButton(
-              tooltip: 'تسجيل الخروج',
-              icon: const Icon(Icons.logout_rounded),
-              onPressed: () async {
-                await ref.read(authProvider.notifier).signOut();
-              }
+            tooltip: 'تسجيل الخروج',
+            icon: const Icon(Icons.logout_rounded),
+            onPressed: () async {
+              await ref.read(authProvider.notifier).signOut();
+            },
           ),
         ],
       ),
@@ -221,6 +227,15 @@ class _DashboardAdminPageState extends ConsumerState<DashboardAdminPage> {
               icon: Icons.people_alt_outlined,
               onTap: () {
                 context.push('/employees');
+              },
+            ),
+
+            _AdminActionTile(
+              title: 'التعاميم والإشعارات',
+              subtitle: 'إرسال إشعار لكل الموظفين أو لموظف محدد',
+              icon: Icons.campaign_rounded,
+              onTap: () {
+                context.push('/admin/announcements');
               },
             ),
             _AdminActionTile(

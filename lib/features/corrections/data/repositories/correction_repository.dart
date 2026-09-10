@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../../core/services/app_notification_dispatcher.dart';
 import '../models/correction_model.dart';
 
 class CorrectionRepository {
@@ -91,18 +92,57 @@ class CorrectionRepository {
       'status': 'pending',
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     });
+
+    final profile = await _client
+        .from('profiles')
+        .select('full_name')
+        .eq('id', employeeId)
+        .maybeSingle();
+
+    final employeeName = profile?['full_name']?.toString() ?? 'موظف';
+
+    try {
+      await AppNotificationDispatcher.instance.notifyAdmins(
+        client: _client,
+        senderId: employeeId,
+        title: 'طلب تعديل بصمة جديد',
+        body: '$employeeName أرسل طلب تعديل بصمة بانتظار المراجعة.',
+        kind: 'correction_request',
+      );
+    } catch (_) {}
   }
 
   Future<void> approveCorrection({
     required String correctionId,
     required String reviewedBy,
   }) async {
+    final row = await _client
+        .from('corrections')
+        .select('employee_id')
+        .eq('id', correctionId)
+        .maybeSingle();
+
     await _client.rpc(
       'admin_approve_correction_request',
       params: {
         'p_correction_id': correctionId,
       },
     );
+
+    final employeeId = row?['employee_id']?.toString();
+    if (employeeId != null) {
+      try {
+        await AppNotificationDispatcher.instance.notifyEmployee(
+          client: _client,
+          recipientId: employeeId,
+          senderId: reviewedBy,
+          title: 'تم قبول طلب تعديل البصمة',
+          body: 'تمت الموافقة على طلب تعديل البصمة الخاص بك.',
+          kind: 'correction_approved',
+          payload: {'correction_id': correctionId},
+        );
+      } catch (_) {}
+    }
   }
 
   Future<void> rejectCorrection({
@@ -110,6 +150,12 @@ class CorrectionRepository {
     required String reviewedBy,
     required String rejectionReason,
   }) async {
+    final row = await _client
+        .from('corrections')
+        .select('employee_id')
+        .eq('id', correctionId)
+        .maybeSingle();
+
     await _client.rpc(
       'admin_reject_correction_request',
       params: {
@@ -117,5 +163,20 @@ class CorrectionRepository {
         'p_rejection_reason': rejectionReason.trim(),
       },
     );
+
+    final employeeId = row?['employee_id']?.toString();
+    if (employeeId != null) {
+      try {
+        await AppNotificationDispatcher.instance.notifyEmployee(
+          client: _client,
+          recipientId: employeeId,
+          senderId: reviewedBy,
+          title: 'تم رفض طلب تعديل البصمة',
+          body: 'تم رفض طلب تعديل البصمة الخاص بك.',
+          kind: 'correction_rejected',
+          payload: {'correction_id': correctionId},
+        );
+      } catch (_) {}
+    }
   }
 }

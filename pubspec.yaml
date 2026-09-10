@@ -32,6 +32,8 @@ dependencies:
   syncfusion_flutter_pdfviewer: ^33.2.13
   hand_signature: ^3.1.0+2
   syncfusion_flutter_pdf: ^33.2.13
+  timezone: ^0.9.4
+  flutter_timezone: ^4.0.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

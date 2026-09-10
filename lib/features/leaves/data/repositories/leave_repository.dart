@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/services/app_notification_dispatcher.dart';
 import '../models/admin_employee_item.dart';
 import '../models/carry_policy_item_model.dart';
 import '../models/leave_balance_model.dart';
@@ -283,6 +284,8 @@ class LeaveRepository {
     required String requestUnit,
     String? halfDayPart,
   }) async {
+    final employeeId = _authUserId();
+
     await _client.rpc(
       'submit_leave_request',
       params: {
@@ -294,6 +297,24 @@ class LeaveRepository {
         'p_half_day_part': halfDayPart,
       },
     );
+
+    final profile = await _client
+        .from('profiles')
+        .select('full_name')
+        .eq('id', employeeId)
+        .maybeSingle();
+
+    final employeeName = profile?['full_name']?.toString() ?? 'موظف';
+
+    try {
+      await AppNotificationDispatcher.instance.notifyAdmins(
+        client: _client,
+        senderId: employeeId,
+        title: 'طلب إجازة جديد',
+        body: '$employeeName أرسل طلب إجازة جديد بانتظار المراجعة.',
+        kind: 'leave_request',
+      );
+    } catch (_) {}
   }
 
   Future<void> cancelLeaveRequest({
@@ -339,18 +360,49 @@ class LeaveRepository {
   Future<void> approveLeaveRequest({
     required String leaveId,
   }) async {
+    final adminId = _authUserId();
+
+    final row = await _client
+        .from('leaves')
+        .select('employee_id')
+        .eq('id', leaveId)
+        .maybeSingle();
+
     await _client.rpc(
       'approve_leave_request',
       params: {
         'p_leave_id': leaveId,
       },
     );
+
+    final employeeId = row?['employee_id']?.toString();
+    if (employeeId != null) {
+      try {
+        await AppNotificationDispatcher.instance.notifyEmployee(
+          client: _client,
+          recipientId: employeeId,
+          senderId: adminId,
+          title: 'تم قبول طلب الإجازة',
+          body: 'تمت الموافقة على طلب الإجازة الخاص بك.',
+          kind: 'leave_approved',
+          payload: {'leave_id': leaveId},
+        );
+      } catch (_) {}
+    }
   }
 
   Future<void> rejectLeaveRequest({
     required String leaveId,
     required String rejectionReason,
   }) async {
+    final adminId = _authUserId();
+
+    final row = await _client
+        .from('leaves')
+        .select('employee_id')
+        .eq('id', leaveId)
+        .maybeSingle();
+
     await _client.rpc(
       'reject_leave_request',
       params: {
@@ -358,5 +410,20 @@ class LeaveRepository {
         'p_rejection_reason': rejectionReason,
       },
     );
+
+    final employeeId = row?['employee_id']?.toString();
+    if (employeeId != null) {
+      try {
+        await AppNotificationDispatcher.instance.notifyEmployee(
+          client: _client,
+          recipientId: employeeId,
+          senderId: adminId,
+          title: 'تم رفض طلب الإجازة',
+          body: 'تم رفض طلب الإجازة الخاص بك.',
+          kind: 'leave_rejected',
+          payload: {'leave_id': leaveId},
+        );
+      } catch (_) {}
+    }
   }
 }

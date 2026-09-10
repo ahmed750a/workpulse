@@ -7,6 +7,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../../../../app/providers/supabase_provider.dart';
 import '../../../../../core/services/work_timer_service.dart';
 import '../../../../../core/services/location_tracking_service.dart';
+import '../../../../core/services/shift_reminder_service.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/models/attendance_break_model.dart';
 import '../../data/models/attendance_record_model.dart';
@@ -352,6 +353,11 @@ class AttendanceNotifier extends Notifier<AttendanceState> {
       record: record,
     );
 
+    await ShiftReminderService.instance.syncTodayReminders(
+      schedule: schedule,
+      todayRecord: record,
+    );
+
     state = state.copyWith(
       todayRecord: record,
       currentSchedule: schedule,
@@ -381,7 +387,10 @@ class AttendanceNotifier extends Notifier<AttendanceState> {
         schedule: schedule,
         record: record,
       );
-
+      await ShiftReminderService.instance.syncTodayReminders(
+        schedule: schedule,
+        todayRecord: record,
+      );
       if (record?.checkInAt != null && record?.checkOutAt == null) {
         if (activeBreak != null) {
           // أثناء إذن خروج/عودة أو استراحة نشطة نوقف عداد الدوام

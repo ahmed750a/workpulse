@@ -6,6 +6,8 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 import 'app/app.dart';
 import 'core/config/supabase_keys.dart';
+import 'core/services/notification_listener_service.dart';
+import 'core/services/shift_reminder_service.dart';
 import 'core/services/work_timer_service.dart';
 import 'core/services/location_tracking_service.dart';
 void main() async {
@@ -23,7 +25,8 @@ void main() async {
   // Important: initialize local notifications before any timer notification is shown.
   await WorkTimerService.instance.init();
   await LocationTrackingService.instance.init();
-
+  await ShiftReminderService.instance.init();
+  await NotificationListenerService.instance.init();
   runApp(
     const ProviderScope(
       child: WorkPulseApp(),

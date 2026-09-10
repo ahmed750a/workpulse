@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart'; // ✅ أضف هذا
 import 'package:go_router/go_router.dart';
 
+import '../core/services/notification_listener_service.dart';
 import '../features/auth/presentation/providers/auth_provider.dart';
+import '../core/services/notification_listener_service.dart';
+import '../features/notifications/presentation/providers/notifications_provider.dart';
 import 'router/app_router.dart';
 
 class WorkPulseApp extends ConsumerStatefulWidget {
@@ -14,6 +17,7 @@ class WorkPulseApp extends ConsumerStatefulWidget {
 }
 
 class _WorkPulseAppState extends ConsumerState<WorkPulseApp> {
+  String? _boundNotificationUserId;
   @override
   void initState() {
     super.initState();
@@ -31,8 +35,16 @@ class _WorkPulseAppState extends ConsumerState<WorkPulseApp> {
       final user = next.user;
 
       if (user == null) {
+        _boundNotificationUserId = null;
+        NotificationListenerService.instance.stop();
         router.go('/login');
       } else {
+        if (_boundNotificationUserId != user.id) {
+          _boundNotificationUserId = user.id;
+          NotificationListenerService.instance.startForUser(user.id);
+          ref.read(notificationsProvider.notifier).bootstrapForCurrentUser();
+        }
+
         if (user.role == 'admin') {
           router.go('/admin');
         } else {
